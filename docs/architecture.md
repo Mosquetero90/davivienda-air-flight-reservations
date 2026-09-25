@@ -148,3 +148,64 @@ La interfaz de usuario fue diseñada respetando la identidad institucional del *
 4. **HU4: Dashboard Administrativo FlightOps (`Screen ID: cddc5943dccb4d23a60e7f843c23760b`)**
    - Indicadores KPI de ocupación en vivo, mapa de calor de cabina, feed de eventos de concurrencia en directo y controles sandbox para simular colisiones y expiraciones.
 
+---
+
+## 6. Seguridad y Versionado Semántico (SemVer) en Node.js
+
+Para garantizar la **estabilidad, reproducibilidad y seguridad** en los entornos de producción del Banco Davivienda, la arquitectura implementa una política estricta de gestión de dependencias basada en el estándar [SemVer (Semantic Versioning 2.0.0)](https://docs.npmjs.com/about-semantic-versioning) de npm.
+
+```
+                MAJOR . MINOR . PATCH
+                  │       │       │
+                  │       │       └── Correcciones de bugs retrocompatibles (Hotfixes)
+                  │       └────────── Nuevas funcionalidades retrocompatibles
+                  └────────────────── Cambios que rompen compatibilidad (Breaking Changes)
+```
+
+### 6.1. Implicaciones del Uso de Modificadores en `package.json`
+
+| Modificador | Sintaxis | Rango Permitido | Comportamiento en Build / CI | Nivel de Riesgo en Producción |
+| :--- | :--- | :--- | :--- | :--- |
+| **Caret (`^`)** | `^1.2.3` | `>= 1.2.3 < 2.0.0` | Acepta automáticamente versiones minor y patch. | **Alto en Producción Bancaria:** Aunque SemVer estipula compatibilidad en cambios menores, librerías de terceros pueden introducir regresiones inesperadas, cambios en el comportamiento de APIs o vulnerabilidades introducidas en releases no supervisados. |
+| **Tilde (`~`)** | `~1.2.3` | `>= 1.2.3 < 1.3.0` | Acepta exclusivamente parches de mantenimiento. | **Medio-Alto:** Reduce el riesgo respecto a `^`, pero un parche defectuoso o malicioso (*poisoned patch*) puede comprometer el despliegue. |
+| **Versión Exacta (Pinned)** | `1.2.3` | `=== 1.2.3` | No admite ninguna variación automática. | **Mínimo / Seguro (Recomendado):** Garantiza que cada entorno ejecute exactamente el mismo binario probado y certificado por QA y Seguridad. |
+| **Wildcard (`*` / `latest`)** | `*` o `latest` | Cualquiera | Descarga la última versión disponible al compilar. | **Inadmisible en Producción:** Ruptura garantizada de pipelines y exposición total a ataques de cadena de suministro. |
+
+### 6.2. Riesgos de Seguridad y Ataques a la Cadena de Suministro (*Supply-Chain Attacks*)
+
+El ecosistema Node.js y npm es el objetivo más frecuente de ataques dirigidos al ciclo de vida del software:
+1. **Compromiso de Cuentas de Mantenedores:** Si un atacante vulnera las credenciales de un mantenedor de un paquete popular, puede publicar una versión `PATCH` o `MINOR` adulterada (ej. mineros de criptomonedas, robo de tokens de sesión, backdoors). El uso de `^` o `~` en pipelines sin lockfile descargaría automáticamente el código malicioso.
+2. **Typosquatting y Confusión de Dependencias:** Paquetes con nombres similares que explotan errores de tipeo.
+3. **Scripts de Ciclo de Vida Maliciosos (`preinstall` / `postinstall`):** Paquetes maliciosos que ejecutan scripts arbitrarios en el servidor de compilación o contenedor al correr `npm install`.
+
+### 6.3. Estrategia de Mitigación y Buenas Prácticas Implementadas
+
+Para blindar la plataforma ante estos vectores, se han implementado las siguientes defensas arquitectónicas:
+
+1. **Uso Exclusivo de `npm ci --ignore-scripts` en Contenedores Docker:**
+   - Tanto el [`backend/Dockerfile`](../backend/Dockerfile) como el [`frontend/Dockerfile`](../frontend/Dockerfile) utilizan de forma obligatoria `npm ci --ignore-scripts`.
+   - **`npm ci` (Clean Install):** No consulta rangos de `package.json`; lee estrictamente el árbol congelado en `package-lock.json`, verificando la integridad de cada paquete contra su hash SHA-512 (`integrity`). Si existe discrepancia entre el lockfile y el manifiesto, el build falla inmediatamente.
+   - **`--ignore-scripts`:** Deshabilita la ejecución automática de scripts `postinstall` de paquetes externos durante la creación de imágenes, mitigando ejecución de código remoto (RCE).
+
+2. **Control Centralizado con `.npmrc`:**
+   Se ha incorporado el archivo [`.npmrc`](../.npmrc) en la raíz del monorepo con las directivas:
+   ```ini
+   save-exact=true        # Todo nuevo paquete instalado por desarrolladores queda fijado a versión exacta (sin ^ ni ~)
+   engine-strict=true     # Falla la instalación si el runtime Node.js no cumple con la especificación de motores
+   audit-level=high       # Umbral estricto para detección de vulnerabilidades
+   ```
+
+3. **Inmutabilidad y Determinismo del Entorno (`engines`):**
+   En [`package.json`](../package.json) se declaran los motores certificados:
+   ```json
+   "engines": {
+     "node": ">=20.0.0",
+     "npm": ">=10.0.0"
+   }
+   ```
+   Esto asegura paridad exacta entre las estaciones de trabajo de los desarrolladores y las imágenes base de producción (`node:20-alpine`).
+
+4. **Flujo de Actualización Segura (Gobernanza CI/CD):**
+   - Las dependencias no se actualizan en tiempo de despliegue ni de forma reactiva en producción.
+   - Se promueve el uso de herramientas de escaneo estático continuo (SAST / SCA como Snyk o Dependabot) que abren Pull Requests independientes acompañados de la ejecución de toda la suite de pruebas unitarias y e2e antes de autorizar cualquier promoción de versión.
+
