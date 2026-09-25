@@ -1,0 +1,21 @@
+export enum FlightStatus {
+  SCHEDULED = 'SCHEDULED',
+  ON_TIME = 'ON_TIME',
+  DELAYED = 'DELAYED',
+  BOARDING = 'BOARDING',
+  DEPARTED = 'DEPARTED',
+  CANCELLED = 'CANCELLED',
+  SOLD_OUT = 'SOLD_OUT',
+}
+
+export enum SeatStatus {
+  AVAILABLE = 'AVAILABLE',
+  LOCKED = 'LOCKED',
+  BOOKED = 'BOOKED',
+}
+
+export enum SeatClass {
+  ECONOMY = 'ECONOMY',
+  PREMIUM_ECONOMY = 'PREMIUM_ECONOMY',
+  BUSINESS = 'BUSINESS',
+}

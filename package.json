@@ -1,0 +1,27 @@
+{
+  "name": "sistema-reservas-vuelos-tiempo-real",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de Reservas de Vuelos en Tiempo Real con Angular y NestJS - Davivienda Tech Lead",
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "build:shared": "npm run build --workspace=shared",
+    "build:backend": "npm run build --workspace=backend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "build": "npm run build:shared && npm run build:backend && npm run build:frontend",
+    "start:backend": "npm run start:dev --workspace=backend",
+    "start:frontend": "npm start --workspace=frontend",
+    "dev": "npm run build:shared && concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "test": "npm test --workspace=backend",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  }
+}
