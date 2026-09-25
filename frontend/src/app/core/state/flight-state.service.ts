@@ -150,19 +150,9 @@ export class FlightStateService {
           });
         }
         this.startLockCountdown(payload.remainingSeconds || 300);
-        this.addNotification(
-          `¡Asiento ${payload.seatNumber} bloqueado con éxito! (${this.myLockedSeats().length} de ${this.passengers()} seleccionados)`,
-          'success',
-        );
       } else {
         // Si fue bloqueado por otra persona y estaba en mi lista local, retirarlo
         this.myLockedSeats.update((list) => list.filter((s) => s.seatNumber !== payload.seatNumber));
-        if (this.selectedFlight()?.id === payload.flightId) {
-          this.addNotification(
-            `Asiento ${payload.seatNumber} acaba de ser reservado temporalmente por otro usuario.`,
-            'info',
-          );
-        }
       }
     });
 
@@ -203,8 +193,6 @@ export class FlightStateService {
             `El tiempo de 5 minutos para el asiento ${payload.seatNumber} expiró y ha sido liberado automáticamente.`,
             'warning',
           );
-        } else if (payload.reason === 'USER_UNLOCKED') {
-          this.addNotification(`Asiento ${payload.seatNumber} liberado.`, 'info');
         }
       }
     });
