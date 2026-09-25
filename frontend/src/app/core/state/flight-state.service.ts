@@ -407,6 +407,7 @@ export class FlightStateService {
   public async confirmBooking(
     passenger: BookingPassengerDto,
     paymentMethod: 'DAVIPLATA' | 'CARD' | 'PSE',
+    paymentDetails?: { cardNumber?: string; expiryDate?: string; cvv?: string },
   ): Promise<BookingResponseDto> {
     const isRound = this.tripType() === 'ROUND_TRIP' && !!this.selectedReturnFlight();
     const outboundFlight = this.selectedOutboundFlight() || this.selectedFlight();
@@ -449,6 +450,9 @@ export class FlightStateService {
           passenger,
           payment: {
             method: paymentMethod as any,
+            ...(paymentDetails?.cardNumber ? { cardNumber: paymentDetails.cardNumber.replace(/\s/g, '') } : {}),
+            ...(paymentDetails?.expiryDate ? { expiryDate: paymentDetails.expiryDate } : {}),
+            ...(paymentDetails?.cvv ? { cvv: paymentDetails.cvv } : {}),
           },
         };
 
@@ -475,6 +479,9 @@ export class FlightStateService {
             passenger,
             payment: {
               method: paymentMethod as any,
+              ...(paymentDetails?.cardNumber ? { cardNumber: paymentDetails.cardNumber.replace(/\s/g, '') } : {}),
+              ...(paymentDetails?.expiryDate ? { expiryDate: paymentDetails.expiryDate } : {}),
+              ...(paymentDetails?.cvv ? { cvv: paymentDetails.cvv } : {}),
             },
           };
 

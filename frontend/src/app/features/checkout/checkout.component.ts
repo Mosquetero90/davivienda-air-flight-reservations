@@ -379,6 +379,19 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
 
                 <!-- Payment Options -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+                  <!-- Tarjeta Option -->
+                  <div
+                    (click)="selectedPaymentMethod = 'CARD'"
+                    class="p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between"
+                    [ngClass]="selectedPaymentMethod === 'CARD' ? 'border-teal-600 bg-teal-50/40 shadow-sm' : 'border-slate-200 hover:border-slate-300'"
+                  >
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="font-extrabold text-sm text-slate-800">Tarjeta</span>
+                      <span *ngIf="selectedPaymentMethod === 'CARD'" class="text-teal-600 font-bold">✓</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500">Crédito o Débito.</p>
+                  </div>
+
                   <!-- DaviPlata Option -->
                   <div
                     (click)="selectedPaymentMethod = 'DAVIPLATA'"
@@ -390,19 +403,6 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                       <span *ngIf="selectedPaymentMethod === 'DAVIPLATA'" class="text-daviplata font-bold">✓</span>
                     </div>
                     <p class="text-[11px] text-slate-500">Paga desde tu celular al instante.</p>
-                  </div>
-
-                  <!-- Tarjeta Davivienda -->
-                  <div
-                    (click)="selectedPaymentMethod = 'CARD'"
-                    class="p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between"
-                    [ngClass]="selectedPaymentMethod === 'CARD' ? 'border-davivienda bg-red-50/40 shadow-sm' : 'border-slate-200 hover:border-slate-300'"
-                  >
-                    <div class="flex items-center justify-between mb-2">
-                      <span class="font-extrabold text-sm text-slate-800">Tarjeta</span>
-                      <span *ngIf="selectedPaymentMethod === 'CARD'" class="text-davivienda font-bold">✓</span>
-                    </div>
-                    <p class="text-[11px] text-slate-500">Crédito o Débito Davivienda.</p>
                   </div>
 
                   <!-- PSE -->
@@ -419,6 +419,244 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                   </div>
                 </div>
 
+                <!-- Tarjeta de Crédito y Débito Form (Matches Reference Screenshot) -->
+                <div
+                  *ngIf="selectedPaymentMethod === 'CARD'"
+                  class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden border-l-4 border-l-teal-600 mb-2 transition-all"
+                >
+                  <!-- Card Header Bar -->
+                  <div class="px-5 py-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white">
+                    <div class="flex items-center gap-3">
+                      <!-- Active Teal Radio Dot Indicator -->
+                      <div class="w-5 h-5 rounded-full border-2 border-teal-600 flex items-center justify-center shrink-0">
+                        <div class="w-2.5 h-2.5 rounded-full bg-teal-600"></div>
+                      </div>
+                      <span class="text-base font-semibold text-slate-800">Tarjeta de crédito y débito</span>
+                    </div>
+
+                    <!-- Payment Network Badges -->
+                    <div class="flex items-center gap-2">
+                      <!-- AMEX -->
+                      <div
+                        class="bg-[#006fcf] text-white text-[10px] font-black tracking-widest px-2.5 py-1 rounded shadow-xs transition-all select-none"
+                        [ngClass]="detectedCardBrand === 'amex' ? 'ring-2 ring-teal-500 scale-105' : 'opacity-90'"
+                      >
+                        AMEX
+                      </div>
+
+                      <!-- Diners Club -->
+                      <div
+                        class="bg-black text-white text-[10px] font-bold px-2 py-1 rounded shadow-xs flex items-center gap-1 transition-all select-none"
+                        [ngClass]="detectedCardBrand === 'diners' ? 'ring-2 ring-teal-500 scale-105' : 'opacity-90'"
+                      >
+                        <span class="w-3 h-3 rounded-full border border-white flex items-center justify-center text-[7px] font-bold">D</span>
+                        <span>Diners</span>
+                      </div>
+
+                      <!-- Mastercard -->
+                      <div
+                        class="bg-white border border-slate-200 px-2 py-0.5 rounded shadow-xs flex items-center transition-all select-none"
+                        [ngClass]="detectedCardBrand === 'mastercard' ? 'ring-2 ring-teal-500 scale-105' : 'opacity-90'"
+                      >
+                        <div class="flex items-center -space-x-1.5">
+                          <span class="w-3.5 h-3.5 rounded-full bg-[#eb001b] inline-block"></span>
+                          <span class="w-3.5 h-3.5 rounded-full bg-[#ff5f00] opacity-90 inline-block"></span>
+                        </div>
+                      </div>
+
+                      <!-- VISA -->
+                      <div
+                        class="bg-white border border-slate-200 px-2.5 py-0.5 rounded shadow-xs transition-all select-none"
+                        [ngClass]="detectedCardBrand === 'visa' ? 'ring-2 ring-teal-500 scale-105' : 'opacity-90'"
+                      >
+                        <span class="text-[#1a1f71] font-black italic tracking-wider text-xs">VISA</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card Body -->
+                  <div class="p-6 space-y-6">
+                    <!-- Split Payment Toggle -->
+                    <div class="flex items-center gap-3">
+                      <!-- Toggle switch -->
+                      <button
+                        type="button"
+                        role="switch"
+                        [attr.aria-checked]="splitPayment"
+                        (click)="splitPayment = !splitPayment"
+                        class="w-11 h-6 rounded-full transition-colors relative cursor-pointer focus:outline-none shrink-0"
+                        [ngClass]="splitPayment ? 'bg-teal-600' : 'bg-slate-300'"
+                      >
+                        <span
+                          class="w-5 h-5 bg-white rounded-full shadow-md transform transition-transform absolute top-0.5 left-0.5"
+                          [ngClass]="splitPayment ? 'translate-x-5' : 'translate-x-0'"
+                        ></span>
+                      </button>
+
+                      <div class="flex items-center gap-2 text-xs">
+                        <span class="font-bold text-slate-800">Dividir el pago</span>
+                        <span class="text-slate-600">de tus vuelos en dos tarjetas diferentes</span>
+                        <span
+                          class="w-4 h-4 rounded-full bg-[#20293a] text-white text-[10px] font-bold flex items-center justify-center cursor-pointer hover:bg-slate-700 shrink-0"
+                          title="Permite pagar una parte con una tarjeta y el saldo restante con otra tarjeta diferente."
+                        >i</span>
+                      </div>
+                    </div>
+
+                    <!-- Split Payment Notice (if enabled) -->
+                    <div *ngIf="splitPayment" class="p-3 bg-teal-50/80 border border-teal-200 rounded-xl text-xs text-teal-900 flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <span>💳</span>
+                        <span>
+                          <strong>Monto Tarjeta 1:</strong> $ {{ (totalPrice() * 0.5) | number }} COP (50%) &bull;
+                          <strong>Monto Tarjeta 2:</strong> $ {{ (totalPrice() * 0.5) | number }} COP (50%)
+                        </span>
+                      </div>
+                      <span class="text-[10px] font-bold uppercase tracking-wider bg-teal-200 text-teal-900 px-2 py-0.5 rounded">Split 50/50</span>
+                    </div>
+
+                    <!-- Section Title -->
+                    <div>
+                      <h3 class="text-sm font-bold text-slate-900">Información de la tarjeta</h3>
+                    </div>
+
+                    <!-- Card Form Inputs -->
+                    <div class="space-y-6">
+                      <!-- Field 1: Card Number -->
+                      <div class="relative">
+                        <div class="flex items-center gap-2 border-b border-slate-300 focus-within:border-teal-600 pb-1.5 transition-colors">
+                          <span class="text-slate-400 text-base">💳</span>
+                          <input
+                            type="text"
+                            inputmode="numeric"
+                            autocomplete="cc-number"
+                            maxlength="19"
+                            placeholder="Número de tarjeta"
+                            [(ngModel)]="cardNumber"
+                            (input)="onCardNumberInput($event)"
+                            class="w-full bg-transparent text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none tracking-wider font-mono"
+                          />
+                        </div>
+                        <p class="text-[11px] text-slate-500 mt-1">Ingresa tu tarjeta crédito, débito o Avianca UATP</p>
+                      </div>
+
+                      <!-- Field 2 & 3: Expiration Date & CVV -->
+                      <div class="grid grid-cols-2 gap-6">
+                        <!-- MM/AA -->
+                        <div class="relative">
+                          <div class="border-b border-slate-300 focus-within:border-teal-600 pb-1.5 transition-colors">
+                            <input
+                              type="text"
+                              inputmode="numeric"
+                              autocomplete="cc-exp"
+                              maxlength="5"
+                              placeholder="MM/AA"
+                              [(ngModel)]="cardExp"
+                              (input)="onCardExpInput($event)"
+                              class="w-full bg-transparent text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none tracking-widest uppercase font-mono"
+                            />
+                          </div>
+                          <p class="text-[11px] text-slate-500 mt-1">Fecha de expiración</p>
+                        </div>
+
+                        <!-- CVV -->
+                        <div class="relative">
+                          <div class="flex items-center justify-between border-b border-slate-300 focus-within:border-teal-600 pb-1.5 transition-colors">
+                            <input
+                              type="password"
+                              inputmode="numeric"
+                              autocomplete="cc-csc"
+                              maxlength="4"
+                              placeholder="CVV"
+                              [(ngModel)]="cardCvv"
+                              (input)="onCardCvvInput($event)"
+                              class="w-full bg-transparent text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none tracking-widest font-mono"
+                            />
+                            <span
+                              class="w-4 h-4 rounded-full bg-[#20293a] text-white text-[10px] font-bold flex items-center justify-center cursor-pointer hover:bg-slate-700 shrink-0 ml-2"
+                              title="Código de seguridad de 3 o 4 dígitos ubicado al reverso de tu tarjeta"
+                            >i</span>
+                          </div>
+                          <p class="text-[11px] text-slate-500 mt-1">Código de seguridad</p>
+                        </div>
+                      </div>
+
+                      <!-- Secondary Card for Split Payment (if toggled) -->
+                      <div *ngIf="splitPayment" class="pt-4 border-t border-dashed border-slate-200 space-y-4">
+                        <div class="flex items-center justify-between">
+                          <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <span>💳</span> Segunda Tarjeta (50% restante)
+                          </h4>
+                          <span class="text-[11px] text-teal-700 font-semibold">$ {{ (totalPrice() * 0.5) | number }} COP</span>
+                        </div>
+                        <div class="relative">
+                          <div class="flex items-center gap-2 border-b border-slate-300 focus-within:border-teal-600 pb-1.5 transition-colors">
+                            <span class="text-slate-400 text-base">💳</span>
+                            <input
+                              type="text"
+                              inputmode="numeric"
+                              maxlength="19"
+                              placeholder="Número de la segunda tarjeta"
+                              [(ngModel)]="card2Number"
+                              (input)="onCard2NumberInput($event)"
+                              class="w-full bg-transparent text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none tracking-wider font-mono"
+                            />
+                          </div>
+                          <p class="text-[11px] text-slate-500 mt-1">Segunda tarjeta de crédito o débito para split</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-6">
+                          <div>
+                            <div class="border-b border-slate-300 focus-within:border-teal-600 pb-1.5">
+                              <input
+                                type="text"
+                                maxlength="5"
+                                placeholder="MM/AA"
+                                [(ngModel)]="card2Exp"
+                                (input)="onCard2ExpInput($event)"
+                                class="w-full bg-transparent text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none tracking-widest uppercase font-mono"
+                              />
+                            </div>
+                            <p class="text-[11px] text-slate-500 mt-1">Fecha expiración tarjeta 2</p>
+                          </div>
+                          <div>
+                            <div class="border-b border-slate-300 focus-within:border-teal-600 pb-1.5">
+                              <input
+                                type="password"
+                                maxlength="4"
+                                placeholder="CVV"
+                                [(ngModel)]="card2Cvv"
+                                (input)="onCard2CvvInput($event)"
+                                class="w-full bg-transparent text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none tracking-widest font-mono"
+                              />
+                            </div>
+                            <p class="text-[11px] text-slate-500 mt-1">CVV tarjeta 2</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Demo Quick Fill & Reset Buttons -->
+                      <div class="flex items-center justify-between pt-2">
+                        <button
+                          type="button"
+                          (click)="fillDemoCard()"
+                          class="text-xs text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>⚡ Cargar datos demo (Visa)</span>
+                        </button>
+                        <button
+                          *ngIf="cardNumber || cardExp || cardCvv"
+                          type="button"
+                          (click)="clearCardForm()"
+                          class="text-xs text-slate-400 hover:text-slate-600 font-medium cursor-pointer"
+                        >
+                          Limpiar campos
+                        </button>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
                 <!-- DaviPlata Extra Info -->
                 <div *ngIf="selectedPaymentMethod === 'DAVIPLATA'" class="bg-red-50/60 p-4 rounded-xl border border-red-100 flex items-center gap-3">
                   <div class="w-8 h-8 rounded-lg bg-daviplata text-white flex items-center justify-center font-bold text-sm">
@@ -427,6 +665,17 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                   <div class="text-xs text-slate-700">
                     <p class="font-bold text-slate-900">Confirmación vía DaviPlata</p>
                     <p class="text-slate-500">Se debitarán $ {{ totalPrice() | number }} COP del número {{ passenger.phone }}</p>
+                  </div>
+                </div>
+
+                <!-- PSE Extra Info -->
+                <div *ngIf="selectedPaymentMethod === 'PSE'" class="bg-blue-50/60 p-4 rounded-xl border border-blue-100 flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
+                    🏦
+                  </div>
+                  <div class="text-xs text-slate-700">
+                    <p class="font-bold text-slate-900">Transferencia Segura PSE</p>
+                    <p class="text-slate-500">Serás redirigido a la pasarela de pagos de tu entidad bancaria.</p>
                   </div>
                 </div>
 
@@ -612,8 +861,20 @@ export class CheckoutComponent implements OnInit {
     this.outboundTotalPrice() + this.returnTotalPrice(),
   );
 
-  public selectedPaymentMethod: 'DAVIPLATA' | 'CARD' | 'PSE' = 'DAVIPLATA';
+  public selectedPaymentMethod: 'DAVIPLATA' | 'CARD' | 'PSE' = 'CARD';
   public isSubmitting = this.state.isLoading;
+
+  // Credit / Debit Card fields (demonstration & booking flow)
+  public cardNumber = '';
+  public cardExp = '';
+  public cardCvv = '';
+  public splitPayment = false;
+  public detectedCardBrand: 'visa' | 'mastercard' | 'amex' | 'diners' | null = null;
+
+  // Split payment secondary card fields
+  public card2Number = '';
+  public card2Exp = '';
+  public card2Cvv = '';
 
   public passenger: BookingPassengerDto = {
     firstName: '',
@@ -666,6 +927,88 @@ export class CheckoutComponent implements OnInit {
     };
   }
 
+  public fillDemoCard() {
+    this.cardNumber = '4557 8901 2345 6789';
+    this.cardExp = '12/28';
+    this.cardCvv = '789';
+    this.detectedCardBrand = 'visa';
+  }
+
+  public clearCardForm() {
+    this.cardNumber = '';
+    this.cardExp = '';
+    this.cardCvv = '';
+    this.card2Number = '';
+    this.card2Exp = '';
+    this.card2Cvv = '';
+    this.detectedCardBrand = null;
+  }
+
+  public onCardNumberInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const raw = input.value.replace(/\D/g, '').substring(0, 16);
+    const parts = raw.match(/.{1,4}/g);
+    this.cardNumber = parts ? parts.join(' ') : raw;
+    input.value = this.cardNumber;
+    this.updateCardBrand(raw);
+  }
+
+  public updateCardBrand(rawDigits: string) {
+    if (rawDigits.startsWith('4')) {
+      this.detectedCardBrand = 'visa';
+    } else if (/^(5[1-5]|2[2-7])/.test(rawDigits)) {
+      this.detectedCardBrand = 'mastercard';
+    } else if (/^3[47]/.test(rawDigits)) {
+      this.detectedCardBrand = 'amex';
+    } else if (/^3(?:0[0-5]|[68])/.test(rawDigits)) {
+      this.detectedCardBrand = 'diners';
+    } else {
+      this.detectedCardBrand = null;
+    }
+  }
+
+  public onCardExpInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    let raw = input.value.replace(/\D/g, '').substring(0, 4);
+    if (raw.length >= 3) {
+      this.cardExp = `${raw.substring(0, 2)}/${raw.substring(2)}`;
+    } else {
+      this.cardExp = raw;
+    }
+    input.value = this.cardExp;
+  }
+
+  public onCardCvvInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.cardCvv = input.value.replace(/\D/g, '').substring(0, 4);
+    input.value = this.cardCvv;
+  }
+
+  public onCard2NumberInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const raw = input.value.replace(/\D/g, '').substring(0, 16);
+    const parts = raw.match(/.{1,4}/g);
+    this.card2Number = parts ? parts.join(' ') : raw;
+    input.value = this.card2Number;
+  }
+
+  public onCard2ExpInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    let raw = input.value.replace(/\D/g, '').substring(0, 4);
+    if (raw.length >= 3) {
+      this.card2Exp = `${raw.substring(0, 2)}/${raw.substring(2)}`;
+    } else {
+      this.card2Exp = raw;
+    }
+    input.value = this.card2Exp;
+  }
+
+  public onCard2CvvInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.card2Cvv = input.value.replace(/\D/g, '').substring(0, 4);
+    input.value = this.card2Cvv;
+  }
+
   public isFormValid(): boolean {
     return Boolean(
       this.passenger.firstName &&
@@ -686,7 +1029,17 @@ export class CheckoutComponent implements OnInit {
 
   public async submitBooking() {
     try {
-      await this.state.confirmBooking(this.passenger, this.selectedPaymentMethod);
+      await this.state.confirmBooking(
+        this.passenger,
+        this.selectedPaymentMethod,
+        this.selectedPaymentMethod === 'CARD'
+          ? {
+              cardNumber: this.cardNumber,
+              expiryDate: this.cardExp,
+              cvv: this.cardCvv,
+            }
+          : undefined,
+      );
     } catch {
       // Error manejado en notificaciones de FlightStateService
     }
