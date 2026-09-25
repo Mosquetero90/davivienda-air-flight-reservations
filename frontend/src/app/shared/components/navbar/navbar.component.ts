@@ -59,12 +59,11 @@ import { SocketService } from '../../../core/services/socket.service';
                 class="px-3.5 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-davivienda hover:bg-slate-50 transition-colors flex items-center gap-1.5"
               >
                 <span>Dashboard de Ocupación</span>
-                <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">LIVE</span>
               </a>
             </nav>
           </div>
 
-          <!-- Right: Timer, Socket Indicator & Persona Switcher -->
+          <!-- Right: Timer & Persona Switcher -->
           <div class="flex items-center space-x-3 sm:space-x-4">
             
             <!-- Active 5-min TTL Countdown Timer -->
@@ -77,14 +76,6 @@ import { SocketService } from '../../../core/services/socket.service';
               </svg>
               <span>{{ myLockedSeats().length === 1 ? 'Asiento ' + myLockedSeats()[0].seatNumber : myLockedSeats().length + ' Asientos' }}:</span>
               <span class="font-mono text-sm tracking-wider font-bold">{{ formattedRemainingTime() }}</span>
-            </div>
-
-            <!-- Socket.io Live Status Badge -->
-            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
-                 [ngClass]="isConnected() ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'">
-              <span class="w-2 h-2 rounded-full"
-                    [ngClass]="isConnected() ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'"></span>
-              <span class="hidden sm:inline">{{ isConnected() ? 'Gateway Conectado' : 'Reconectando...' }}</span>
             </div>
 
             <!-- Demo Persona Selector (Para evaluar concurrencia entre pestañas) -->

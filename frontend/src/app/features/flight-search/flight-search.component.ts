@@ -31,38 +31,21 @@ import { PassengerSelectorComponent } from '../../shared/components/passenger-se
 
         <div class="max-w-6xl mx-auto relative z-10">
           
-          <!-- Hero Title & Promo Row -->
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <div>
-              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/15 text-white backdrop-blur-sm border border-white/20 mb-2">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                Inventario Sincronizado en Tiempo Real
-              </span>
-              <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">
-                Vuela con Beneficios Davivienda
-              </h1>
-              <p class="text-red-100 text-xs sm:text-sm mt-1 max-w-xl">
-                Selecciona tu vuelo nacional, visualiza la cabina interactiva en vivo y asegura tu asiento sin riesgo de sobreventa.
-              </p>
-            </div>
-
-            <!-- DaviPuntos Badge -->
-            <div class="bg-white/10 backdrop-blur-md border border-white/20 p-3 rounded-2xl flex items-center gap-3 self-start md:self-auto">
-              <div class="w-9 h-9 rounded-xl bg-amber-400 text-amber-950 flex items-center justify-center font-bold text-base shadow-sm">
-                ⭐
-              </div>
-              <div class="text-xs">
-                <p class="font-bold text-white">Acumula DaviPuntos</p>
-                <p class="text-red-100">O paga desde tu DaviPlata</p>
-              </div>
-            </div>
+          <!-- Hero Title -->
+          <div class="mb-6">
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">
+              Vuela con Beneficios Davivienda
+            </h1>
+            <p class="text-red-100 text-xs sm:text-sm mt-1 max-w-xl">
+              Selecciona tu vuelo nacional, visualiza la cabina interactiva en vivo y asegura tu asiento sin riesgo de sobreventa.
+            </p>
           </div>
 
           <!-- Modern Search Box Wrapper (Card UI) -->
           <div class="bg-white text-slate-800 p-4 sm:p-6 rounded-3xl shadow-2xl border border-slate-100 relative z-30 space-y-4">
             
-            <!-- Top Controls: Trip Type Pill Toggle + Secondary Actions -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-slate-100/80">
+            <!-- Top Controls: Trip Type Pill Toggle -->
+            <div class="flex items-center justify-between pb-1 border-b border-slate-100/80">
               
               <!-- Segmented Control: Ida y vuelta / Solo ida -->
               <div class="inline-flex bg-slate-100 p-1 rounded-full shadow-inner self-start">
@@ -83,18 +66,6 @@ import { PassengerSelectorComponent } from '../../shared/components/passenger-se
                   Solo ida
                 </button>
               </div>
-
-              <!-- Secondary link / DaviPuntos Miles -->
-              <a
-                href="#davipuntos"
-                (click)="$event.preventDefault()"
-                class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-davivienda transition-colors self-start sm:self-auto py-1"
-              >
-                <span>Reservar con millas / DaviPuntos</span>
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </a>
             </div>
 
             <!-- Bottom Row: Origin & Destination | Dates | Passengers | Search Button -->
