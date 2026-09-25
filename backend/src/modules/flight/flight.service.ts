@@ -8,6 +8,7 @@ import {
   SeatClass,
   SeatStatus,
   SearchFlightsDto,
+  PaginatedFlightsResult,
 } from '@davivienda/shared';
 import { FlightEntity, SeatEntity } from '../../database/entities';
 import { SeatLockService } from '../seat/seat-lock.service';
@@ -42,13 +43,24 @@ export class FlightService {
   /**
    * Búsqueda y filtrado de vuelos en Base de Datos (HU1).
    */
-  async searchFlights(dto: SearchFlightsDto): Promise<Flight[]> {
+  async searchFlights(dto: SearchFlightsDto): Promise<PaginatedFlightsResult> {
+    const page = Math.max(1, Number(dto.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(dto.limit) || 5));
+
     if (
       dto.origin &&
       dto.destination &&
       dto.origin.trim().toUpperCase() === dto.destination.trim().toUpperCase()
     ) {
-      return [];
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      };
     }
 
     const query = this.flightRepo.createQueryBuilder('flight');
@@ -69,13 +81,19 @@ export class FlightService {
 
     const targetDate = dto.date || new Date().toISOString().split('T')[0];
     query.andWhere('flight.departureTime LIKE :date', { date: `${targetDate}%` });
-
     query.orderBy('flight.departureTime', 'ASC');
-    let entities = await query.getMany();
 
-    // Si no hay vuelos exactos en BD para la fecha solicitada (ej: fecha futura más allá de la semana sembrada),
-    // proyectar los itinerarios diarios de esa ruta con la fecha solicitada para permitir la reserva fluida
-    if (entities.length === 0) {
+    // Consultar el conteo total antes de paginar
+    const totalCountInDb = await query.getCount();
+    let entities: FlightEntity[] = [];
+    let totalCount = totalCountInDb;
+
+    if (totalCountInDb > 0) {
+      query.skip((page - 1) * limit).take(limit);
+      entities = await query.getMany();
+    } else {
+      // Si no hay vuelos exactos en BD para la fecha solicitada (ej: fecha futura más allá de la semana sembrada),
+      // proyectar los itinerarios diarios de esa ruta con la fecha solicitada para permitir la reserva fluida
       const fallbackQuery = this.flightRepo.createQueryBuilder('flight');
       if (dto.origin) {
         fallbackQuery.andWhere(
@@ -89,26 +107,39 @@ export class FlightService {
           { dest: dto.destination, destLike: `%${dto.destination}%` },
         );
       }
-      fallbackQuery.limit(5);
       fallbackQuery.orderBy('flight.departureTime', 'ASC');
       const fallbackEntities = await fallbackQuery.getMany();
 
-      entities = fallbackEntities.map((f) => {
-        const timePartDep = f.departureTime.split('T')[1] || '08:00:00Z';
-        const timePartArr = f.arrivalTime.split('T')[1] || '09:00:00Z';
-        return {
-          ...f,
-          departureTime: `${targetDate}T${timePartDep}`,
-          arrivalTime: `${targetDate}T${timePartArr}`,
-        };
-      });
+      if (fallbackEntities.length > 0) {
+        const projectedEntities = fallbackEntities.map((f) => {
+          const timePartDep = f.departureTime.split('T')[1] || '08:00:00Z';
+          const timePartArr = f.arrivalTime.split('T')[1] || '09:00:00Z';
+          return {
+            ...f,
+            departureTime: `${targetDate}T${timePartDep}`,
+            arrivalTime: `${targetDate}T${timePartArr}`,
+          };
+        });
+
+        totalCount = projectedEntities.length;
+        entities = projectedEntities.slice((page - 1) * limit, page * limit);
+      }
+    }
+
+    if (entities.length === 0) {
+      const totalPages = Math.ceil(totalCount / limit) || 0;
+      return {
+        data: [],
+        total: totalCount,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: false,
+        hasPreviousPage: page > 1,
+      };
     }
 
     // Calcular conteo en vivo de asientos disponibles de forma masiva (elimina N+1 en SQL y Redis)
-    if (entities.length === 0) {
-      return [];
-    }
-
     const flightIds = entities.map((e) => e.id);
     const seatCounts = await this.seatRepo
       .createQueryBuilder('seat')
@@ -124,7 +155,7 @@ export class FlightService {
       availableDbMap.set(sc.flightId, parseInt(sc.count, 10));
     }
 
-    return Promise.all(
+    const mappedFlights = await Promise.all(
       entities.map(async (f) => {
         const lockedSeatIds = await this.seatLockService.getLockedSeatIdsForFlight(f.id);
         const dbAvailable = availableDbMap.get(f.id) || 0;
@@ -151,6 +182,18 @@ export class FlightService {
         };
       }),
     );
+
+    const totalPages = Math.ceil(totalCount / limit) || 1;
+
+    return {
+      data: mappedFlights,
+      total: totalCount,
+      page,
+      limit,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
+    };
   }
 
   /**

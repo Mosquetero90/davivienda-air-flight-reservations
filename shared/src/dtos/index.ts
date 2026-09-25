@@ -7,6 +7,8 @@ export interface SearchFlightsDto {
   returnDate?: string; // YYYY-MM-DD
   passengers?: number;
   tripType?: TripType;
+  page?: number;
+  limit?: number;
 }
 
 export interface CreateBookingDto {

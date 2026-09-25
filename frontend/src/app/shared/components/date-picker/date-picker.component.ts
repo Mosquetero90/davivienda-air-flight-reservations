@@ -48,12 +48,15 @@ export interface CalendarDay {
           'border-slate-300': !seamless && !isOpen
         }"
       >
-        <div class="flex items-center gap-2.5 overflow-hidden">
+        <div class="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
           <!-- Calendario Icono con badge sutil Davivienda -->
           <div
             *ngIf="showIcon"
-            class="w-8 h-8 rounded-xl flex items-center justify-center transition-colors shrink-0"
-            [ngClass]="value ? 'bg-red-50 text-davivienda' : 'bg-slate-100 text-slate-500'"
+            class="flex items-center justify-center transition-colors shrink-0"
+            [ngClass]="[
+              seamless ? 'w-7 h-7 rounded-lg' : 'w-8 h-8 rounded-xl',
+              value ? 'bg-red-50 text-davivienda' : 'bg-slate-100 text-slate-500'
+            ]"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -61,14 +64,14 @@ export interface CalendarDay {
           </div>
 
           <!-- Texto de Selección o Placeholder -->
-          <div class="truncate text-left">
-            <span *ngIf="compactLabel" class="block text-[11px] font-medium text-slate-500 leading-tight">
+          <div class="truncate text-left flex-1 min-w-0">
+            <span *ngIf="compactLabel" class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-tight truncate">
               {{ compactLabel }}
             </span>
-            <span *ngIf="!value" class="text-slate-400 font-medium text-sm">
+            <span *ngIf="!value" class="block text-xs sm:text-sm font-extrabold text-slate-400 truncate whitespace-nowrap">
               {{ placeholder }}
             </span>
-            <span *ngIf="value" class="text-slate-900 font-bold text-sm">
+            <span *ngIf="value" class="block text-xs sm:text-sm font-extrabold text-slate-900 truncate whitespace-nowrap">
               {{ formattedDisplayDate }}
             </span>
           </div>

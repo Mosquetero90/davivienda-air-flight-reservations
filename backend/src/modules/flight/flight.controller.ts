@@ -16,9 +16,10 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { FlightService } from './flight.service';
-import { Flight, FlightStatus, Seat } from '@davivienda/shared';
+import { Flight, FlightStatus, Seat, PaginatedFlightsResult } from '@davivienda/shared';
 import {
   FlightDto,
+  PaginatedFlightsDto,
   SeatDto,
   UpdateFlightStatusDto,
   ErrorResponseDto,
@@ -34,13 +35,15 @@ export class FlightController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'Buscar vuelos por origen, destino y fecha' })
+  @ApiOperation({ summary: 'Buscar vuelos por origen, destino y fecha con paginación' })
   @ApiQuery({ name: 'origin', required: false, description: 'Código o nombre de ciudad origen (ej: BOG)' })
   @ApiQuery({ name: 'destination', required: false, description: 'Código o nombre de ciudad destino (ej: MDE)' })
   @ApiQuery({ name: 'date', required: false, description: 'Fecha de salida (YYYY-MM-DD)' })
   @ApiQuery({ name: 'passengers', required: false, description: 'Número de pasajeros solicitados (ej: 1)' })
-  @ApiResponse({ status: 200, type: [FlightDto], description: 'Listado de vuelos encontrados' })
-  async searchFlights(@Query() query: SearchFlightsQueryDto): Promise<Flight[]> {
+  @ApiQuery({ name: 'page', required: false, description: 'Número de página (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Límite de vuelos por página (default: 5)' })
+  @ApiResponse({ status: 200, type: PaginatedFlightsDto, description: 'Listado paginado de vuelos encontrados' })
+  async searchFlights(@Query() query: SearchFlightsQueryDto): Promise<PaginatedFlightsResult> {
     return this.flightService.searchFlights(query);
   }
 

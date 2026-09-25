@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FlightStateService } from '../../core/state/flight-state.service';
 import { FlightApiService } from '../../core/services/flight-api.service';
 import { SocketService } from '../../core/services/socket.service';
-import { FlightMetrics } from '@davivienda/shared';
+import { Flight, FlightMetrics } from '@davivienda/shared';
 
 interface LiveFeedEvent {
   id: string;
@@ -46,7 +46,7 @@ interface LiveFeedEvent {
               (change)="onFlightChange($event)"
               class="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-davivienda/20 focus:border-davivienda cursor-pointer"
             >
-              @for (f of flights(); track f.id) {
+              @for (f of allFlights(); track f.id) {
                 <option [value]="f.id" [selected]="f.id === selectedFlight()?.id">
                   {{ f.flightNumber }} ({{ f.originCode }} &rarr; {{ f.destinationCode }})
                 </option>
@@ -63,10 +63,10 @@ interface LiveFeedEvent {
             <div>
               <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Tasa de Ocupación</span>
               <p class="text-3xl font-black text-slate-900 mt-1 font-tabular">
-                {{ currentOccupancy() }}%
+                {{ displayOccupancy() }}%
               </p>
               <p class="text-[11px] text-slate-500 mt-0.5">
-                Capacidad: {{ currentMetrics()?.totalSeats ?? totalSeats() }} asientos
+                Capacidad: {{ displayTotalSeats() }} asientos
               </p>
             </div>
             <div class="relative w-16 h-16 flex items-center justify-center">
@@ -80,11 +80,11 @@ interface LiveFeedEvent {
                   class="stroke-davivienda transition-all duration-700 ease-out"
                   stroke-width="3.5"
                   stroke-dasharray="88"
-                  [attr.stroke-dashoffset]="88 - (88 * currentOccupancy()) / 100"
+                  [attr.stroke-dashoffset]="88 - (88 * displayOccupancy()) / 100"
                   stroke-linecap="round"
                 ></circle>
               </svg>
-              <span class="absolute text-[11px] font-black text-slate-800 font-tabular">{{ currentOccupancy() }}%</span>
+              <span class="absolute text-[11px] font-black text-slate-800 font-tabular">{{ displayOccupancy() }}%</span>
             </div>
           </div>
 
@@ -93,7 +93,7 @@ interface LiveFeedEvent {
             <div>
               <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Asientos Disponibles</span>
               <p class="text-3xl font-black text-emerald-600 mt-1 font-tabular">
-                {{ currentMetrics()?.availableSeats ?? availableSeats() }}
+                {{ displayAvailableSeats() }}
               </p>
               <p class="text-[11px] text-slate-500 mt-0.5">Listos para reserva</p>
             </div>
@@ -107,7 +107,7 @@ interface LiveFeedEvent {
             <div>
               <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Bloqueos Activos (Redis)</span>
               <p class="text-3xl font-black text-amber-500 mt-1 font-tabular">
-                {{ currentMetrics()?.lockedSeats ?? lockedSeats() }}
+                {{ displayLockedSeats() }}
               </p>
               <p class="text-[11px] text-slate-500 mt-0.5">Locks en proceso de pago</p>
             </div>
@@ -121,10 +121,10 @@ interface LiveFeedEvent {
             <div>
               <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Ventas Confirmadas</span>
               <p class="text-3xl font-black text-slate-900 mt-1 font-tabular">
-                {{ currentMetrics()?.bookedSeats ?? bookedSeats() }}
+                {{ displayBookedSeats() }}
               </p>
               <p class="text-[11px] font-bold text-davivienda mt-0.5 font-tabular">
-                $ {{ (currentMetrics()?.revenueEstimated ?? ((bookedSeats() || 4) * 280000)) | number }} COP
+                $ {{ displayRevenue() | number }} COP
               </p>
             </div>
             <div class="w-12 h-12 rounded-xl bg-slate-50 text-slate-800 flex items-center justify-center font-black text-lg border border-slate-200">
@@ -132,37 +132,6 @@ interface LiveFeedEvent {
             </div>
           </div>
 
-        </div>
-
-        <!-- Mini-Heatmap del Avión A320neo -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-            <div>
-              <h3 class="text-base font-bold text-slate-900">Mapa de Calor Matricial de la Cabina (Airbus A320neo)</h3>
-              <p class="text-xs text-slate-500">Distribución de los 180 asientos sincronizados en tiempo real por WebSocket</p>
-            </div>
-            <div class="flex items-center gap-3 text-xs font-semibold">
-              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-emerald-500"></span> Libre</span>
-              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-amber-400 animate-pulse"></span> Bloqueado Redis</span>
-              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-slate-300"></span> Ocupado</span>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-10 sm:grid-cols-15 md:grid-cols-20 gap-1.5 p-4 bg-slate-50 rounded-xl border border-slate-200">
-            @for (seat of seats(); track seat.seatNumber) {
-              <div
-                class="w-full aspect-square rounded text-[8px] font-mono font-bold flex items-center justify-center transition-all cursor-default select-none shadow-2xs"
-                [ngClass]="{
-                  'bg-emerald-500 text-white': seat.status === 'AVAILABLE',
-                  'bg-amber-400 text-amber-950 animate-pulse': seat.status === 'LOCKED',
-                  'bg-slate-300 text-slate-600': seat.status === 'BOOKED'
-                }"
-                [title]="'Asiento ' + seat.seatNumber + ' (' + seat.status + ')'"
-              >
-                {{ seat.seatNumber }}
-              </div>
-            }
-          </div>
         </div>
 
         <!-- 2 Column Layout: Distribución por Clase vs Live Activity Feed -->
@@ -290,7 +259,7 @@ export class DashboardComponent implements OnInit {
   private readonly flightApi = inject(FlightApiService);
   private readonly socketService = inject(SocketService);
 
-  public readonly flights = this.state.flights;
+  public readonly allFlights = signal<Flight[]>([]);
   public readonly selectedFlight = this.state.selectedFlight;
   public readonly seats = this.state.seats;
   public readonly currentMetrics = this.state.metrics;
@@ -300,8 +269,47 @@ export class DashboardComponent implements OnInit {
   public readonly bookedSeats = this.state.bookedSeatsCount;
   public readonly totalSeats = this.state.totalSeatsCount;
 
-  public readonly currentOccupancy = computed(() => {
-    return this.currentMetrics()?.occupancyPercentage ?? this.occupancyPercentage();
+  // Métricas activas asociadas al vuelo actualmente seleccionado
+  public readonly activeMetrics = computed(() => {
+    const m = this.currentMetrics();
+    const flight = this.selectedFlight();
+    return m && flight && m.flightId === flight.id ? m : null;
+  });
+
+  public readonly displayTotalSeats = computed(() => {
+    return this.activeMetrics()?.totalSeats ?? (this.totalSeats() || 180);
+  });
+
+  public readonly displayAvailableSeats = computed(() => {
+    return this.activeMetrics()?.availableSeats ?? this.availableSeats();
+  });
+
+  public readonly displayLockedSeats = computed(() => {
+    return this.activeMetrics()?.lockedSeats ?? this.lockedSeats();
+  });
+
+  public readonly displayBookedSeats = computed(() => {
+    return this.activeMetrics()?.bookedSeats ?? this.bookedSeats();
+  });
+
+  public readonly displayOccupancy = computed(() => {
+    const m = this.activeMetrics();
+    if (m) {
+      return Math.round(m.occupancyPercentage);
+    }
+    const total = this.displayTotalSeats();
+    if (total === 0) return 0;
+    return Math.round((this.displayBookedSeats() / total) * 100);
+  });
+
+  public readonly displayRevenue = computed(() => {
+    const m = this.activeMetrics();
+    if (m && typeof m.revenueEstimated === 'number') {
+      return m.revenueEstimated;
+    }
+    return this.seats()
+      .filter((s) => s.status === 'BOOKED')
+      .reduce((sum, s) => sum + (s.price || 0), 0);
   });
 
   public readonly liveFeed = signal<LiveFeedEvent[]>([
@@ -322,26 +330,21 @@ export class DashboardComponent implements OnInit {
   ]);
 
   ngOnInit() {
-    this.state.loadFlights();
-
-    setTimeout(() => {
-      const allFlights = this.flights();
-      if (allFlights.length > 0 && !this.selectedFlight()) {
-        this.state.selectFlight(allFlights[0].id);
-      }
-    }, 500);
+    this.loadAllFlights();
 
     this.socketService.seatLocked$.subscribe((ev) => {
+      if (this.selectedFlight() && ev.flightId !== this.selectedFlight()?.id) return;
       this.addFeedItem({
         id: Math.random().toString(),
         time: 'Ahora',
         type: 'lock',
         title: `Asiento ${ev.seatNumber} Bloqueado`,
-        description: `Usuario ${ev.lockedByUserId} reservó el asiento. TTL: ${ev.remainingSeconds}s.`,
+        description: `Usuario ${ev.lockedByUserId} reservó temporalmente el asiento. TTL: ${ev.remainingSeconds}s.`,
       });
     });
 
     this.socketService.seatReleased$.subscribe((ev) => {
+      if (this.selectedFlight() && ev.flightId !== this.selectedFlight()?.id) return;
       this.addFeedItem({
         id: Math.random().toString(),
         time: 'Ahora',
@@ -352,6 +355,7 @@ export class DashboardComponent implements OnInit {
     });
 
     this.socketService.seatBooked$.subscribe((ev) => {
+      if (this.selectedFlight() && ev.flightId !== this.selectedFlight()?.id) return;
       this.addFeedItem({
         id: Math.random().toString(),
         time: 'Ahora',
@@ -362,6 +366,7 @@ export class DashboardComponent implements OnInit {
     });
 
     this.socketService.flightStatus$.subscribe((ev) => {
+      if (this.selectedFlight() && ev.flightId !== this.selectedFlight()?.id) return;
       this.addFeedItem({
         id: Math.random().toString(),
         time: 'Ahora',
@@ -369,6 +374,25 @@ export class DashboardComponent implements OnInit {
         title: `Estado de Vuelo Actualizado`,
         description: `Vuelo ${ev.flightId} cambió a estado ${ev.newStatus}.`,
       });
+    });
+  }
+
+  private loadAllFlights() {
+    this.flightApi.getFlights({ limit: 100 }).subscribe({
+      next: (res: any) => {
+        const items: Flight[] = Array.isArray(res) ? res : (res?.data || []);
+        this.allFlights.set(items);
+        if (items.length > 0) {
+          const currentId = this.selectedFlight()?.id;
+          const exists = items.some((f) => f.id === currentId);
+          if (!currentId || !exists) {
+            this.state.selectFlight(items[0].id);
+          }
+        }
+      },
+      error: (err) => {
+        console.error('Error al cargar catálogo de vuelos en dashboard:', err);
+      },
     });
   }
 

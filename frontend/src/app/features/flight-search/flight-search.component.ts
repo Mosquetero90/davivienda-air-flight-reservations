@@ -75,8 +75,8 @@ import { FunnelStepperComponent } from '../../shared/components/funnel-stepper/f
             <!-- Bottom Row: Origin & Destination | Dates | Passengers | Search Button -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
               
-              <!-- 1. Origin & Destination Combined Card (5 cols on lg) -->
-              <div class="lg:col-span-5 bg-white border border-slate-300 rounded-2xl min-h-[58px] p-2 flex items-center justify-between shadow-xs relative">
+              <!-- 1. Origin & Destination Combined Card (4 cols on lg) -->
+              <div class="lg:col-span-4 bg-white border border-slate-300 rounded-2xl min-h-[58px] p-2 flex items-center justify-between shadow-xs relative">
                 
                 <!-- Origen -->
                 <div class="flex-1 flex items-center gap-2.5 px-2 overflow-hidden">
@@ -155,8 +155,8 @@ import { FunnelStepperComponent } from '../../shared/components/funnel-stepper/f
 
               </div>
 
-              <!-- 2. Dates Combined Card (Salida + Regreso) (3 cols on lg) -->
-              <div class="lg:col-span-3 bg-white border border-slate-300 rounded-2xl min-h-[58px] px-2 py-1 flex items-center justify-between shadow-xs relative">
+              <!-- 2. Dates Combined Card (Salida + Regreso) (4 cols on lg) -->
+              <div class="lg:col-span-4 bg-white border border-slate-300 rounded-2xl min-h-[58px] px-2 py-1 flex items-center justify-between shadow-xs relative">
                 <!-- Salida Date Picker -->
                 <div class="flex-1 min-w-0">
                   <app-date-picker
@@ -222,17 +222,20 @@ import { FunnelStepperComponent } from '../../shared/components/funnel-stepper/f
       </section>
 
       <!-- Main Flight Cards Grid -->
-      <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 relative z-10">
+      <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 relative z-10" id="flight-results-section">
         
         <!-- Header & Tabs for Round Trip -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-2 border-b border-slate-200">
           
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3">
             <h2 class="text-xl font-extrabold text-slate-900">
               Vuelos Disponibles
             </h2>
             <span class="text-xs bg-slate-200 text-slate-700 font-bold px-2.5 py-0.5 rounded-full">
-              {{ currentDisplayFlights.length }} {{ currentDisplayFlights.length === 1 ? 'vuelo' : 'vuelos' }}
+              {{ totalCount }} {{ totalCount === 1 ? 'vuelo disponible' : 'vuelos disponibles' }}
+            </span>
+            <span *ngIf="totalPages > 1" class="text-xs bg-red-50 text-davivienda font-bold px-2.5 py-0.5 rounded-full border border-red-100">
+              Página {{ currentPage }} de {{ totalPages }} ({{ pageSize() }} por página)
             </span>
             <span *ngIf="passengers > 1" class="text-xs bg-red-50 text-davivienda font-bold px-2.5 py-0.5 rounded-full border border-red-100">
               Tarifas para {{ passengers }} pasajeros
@@ -260,7 +263,7 @@ import { FunnelStepperComponent } from '../../shared/components/funnel-stepper/f
             >
               <span>1. Vuelo de Ida</span>
               <span class="text-xs px-2 py-0.5 rounded-full" [ngClass]="activeTab === 'outbound' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'">
-                {{ flights().length }}
+                {{ outboundTotal() }}
               </span>
               <span *ngIf="selectedOutboundFlight()" class="text-emerald-300 font-bold ml-1 text-xs">✓ {{ selectedOutboundFlight()?.flightNumber }}</span>
             </button>
@@ -273,7 +276,7 @@ import { FunnelStepperComponent } from '../../shared/components/funnel-stepper/f
             >
               <span>2. Vuelo de Regreso</span>
               <span class="text-xs px-2 py-0.5 rounded-full" [ngClass]="activeTab === 'return' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'">
-                {{ returnFlights().length }}
+                {{ returnTotal() }}
               </span>
               <span *ngIf="selectedReturnFlight()" class="text-emerald-300 font-bold ml-1 text-xs">✓ {{ selectedReturnFlight()?.flightNumber }}</span>
             </button>
@@ -584,6 +587,94 @@ import { FunnelStepperComponent } from '../../shared/components/funnel-stepper/f
           </div>
         </div>
 
+        <!-- Pagination & Page Size Controls -->
+        <nav
+          *ngIf="!isLoading() && totalCount > 0"
+          aria-label="Paginación y cantidad de vuelos por página"
+          class="mt-8 flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-white rounded-2xl border border-slate-200 shadow-xs"
+        >
+          <!-- Results Range Info -->
+          <div class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+            <span>Mostrando</span>
+            <strong class="text-slate-900 font-bold">{{ startItemIndex }} - {{ endItemIndex }}</strong>
+            <span>de</span>
+            <strong class="text-slate-900 font-bold">{{ totalCount }}</strong>
+            <span>vuelos</span>
+            <span class="text-slate-300 mx-1">|</span>
+            <span>Página <strong>{{ currentPage }}</strong> de <strong>{{ totalPages }}</strong></span>
+          </div>
+
+          <!-- Page Size Selector & Navigation Buttons -->
+          <div class="flex flex-wrap items-center justify-center gap-4">
+            
+            <!-- Selector de Cantidad de Resultados a Mostrar -->
+            <div class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+              <label for="flight-page-size" class="whitespace-nowrap">
+                Vuelos por página:
+              </label>
+              <select
+                id="flight-page-size"
+                [value]="pageSize()"
+                (change)="onPageSizeChange($any($event.target).value)"
+                aria-label="Seleccionar cantidad de vuelos a mostrar por página"
+                class="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-black text-slate-800 shadow-2xs focus:outline-none focus:ring-2 focus:ring-davivienda/20 focus:border-davivienda cursor-pointer transition-colors"
+              >
+                @for (size of pageSizeOptions; track size) {
+                  <option [value]="size">{{ size }}</option>
+                }
+              </select>
+            </div>
+
+            <!-- Page Navigation Buttons (Solo cuando hay más de una página) -->
+            <div *ngIf="totalPages > 1" class="flex items-center gap-1.5">
+              <!-- Prev Button -->
+              <button
+                type="button"
+                (click)="prevPage()"
+                [disabled]="!hasPreviousPage"
+                aria-label="Página anterior"
+                class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                <span class="hidden sm:inline">Anterior</span>
+              </button>
+
+              <!-- Page Number Buttons -->
+              <div class="flex items-center gap-1">
+                @for (page of visiblePages; track page) {
+                  <button
+                    type="button"
+                    (click)="goToPage(page)"
+                    [attr.aria-current]="page === currentPage ? 'page' : null"
+                    [attr.aria-label]="'Página ' + page"
+                    class="w-8 h-8 rounded-xl text-xs font-black transition-all flex items-center justify-center cursor-pointer"
+                    [ngClass]="page === currentPage ? 'bg-davivienda text-white shadow-sm ring-2 ring-red-200' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'"
+                  >
+                    {{ page }}
+                  </button>
+                }
+              </div>
+
+              <!-- Next Button -->
+              <button
+                type="button"
+                (click)="nextPage()"
+                [disabled]="!hasNextPage"
+                aria-label="Página siguiente"
+                class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs"
+              >
+                <span class="hidden sm:inline">Siguiente</span>
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+
+          </div>
+        </nav>
+
       </main>
 
       <!-- Sticky Round-Trip Selection Summary Bar -->
@@ -665,6 +756,106 @@ export class FlightSearchComponent implements OnInit {
   public readonly cities = signal<City[]>([]);
   public readonly selectedOutboundFlight = this.state.selectedOutboundFlight;
   public readonly selectedReturnFlight = this.state.selectedReturnFlight;
+
+  // Signals de Paginación expuestas desde FlightStateService
+  public readonly outboundPage = this.state.outboundPage;
+  public readonly outboundTotal = this.state.outboundTotal;
+  public readonly outboundTotalPages = this.state.outboundTotalPages;
+  public readonly returnPage = this.state.returnPage;
+  public readonly returnTotal = this.state.returnTotal;
+  public readonly returnTotalPages = this.state.returnTotalPages;
+  public readonly pageSize = this.state.pageSize;
+  public readonly pageSizeOptions: number[] = [5, 10, 15, 20];
+
+  public get startItemIndex(): number {
+    if (this.totalCount === 0) return 0;
+    return (this.currentPage - 1) * this.pageSize() + 1;
+  }
+
+  public get endItemIndex(): number {
+    return Math.min(this.currentPage * this.pageSize(), this.totalCount);
+  }
+
+  public get currentPage(): number {
+    return this.tripType === 'ROUND_TRIP' && this.activeTab === 'return'
+      ? this.returnPage()
+      : this.outboundPage();
+  }
+
+  public get totalPages(): number {
+    return this.tripType === 'ROUND_TRIP' && this.activeTab === 'return'
+      ? this.returnTotalPages()
+      : this.outboundTotalPages();
+  }
+
+  public get totalCount(): number {
+    return this.tripType === 'ROUND_TRIP' && this.activeTab === 'return'
+      ? this.returnTotal()
+      : this.outboundTotal();
+  }
+
+  public get hasPreviousPage(): boolean {
+    return this.currentPage > 1;
+  }
+
+  public get hasNextPage(): boolean {
+    return this.currentPage < this.totalPages;
+  }
+
+  public get visiblePages(): number[] {
+    const total = this.totalPages;
+    const current = this.currentPage;
+    if (total <= 5) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + 4);
+    if (end - start < 4) {
+      start = Math.max(1, end - 4);
+    }
+    const pages: number[] = [];
+    for (let p = start; p <= end; p++) {
+      pages.push(p);
+    }
+    return pages;
+  }
+
+  public goToPage(page: number) {
+    if (page < 1 || page > this.totalPages || page === this.currentPage) return;
+    if (this.tripType === 'ROUND_TRIP' && this.activeTab === 'return') {
+      this.state.setReturnPage(page);
+    } else {
+      this.state.setOutboundPage(page);
+    }
+    this.scrollToResultsTop();
+  }
+
+  public nextPage() {
+    if (this.hasNextPage) {
+      this.goToPage(this.currentPage + 1);
+    }
+  }
+
+  public prevPage() {
+    if (this.hasPreviousPage) {
+      this.goToPage(this.currentPage - 1);
+    }
+  }
+
+  public onPageSizeChange(newSize: string | number): void {
+    const parsed = typeof newSize === 'string' ? parseInt(newSize, 10) : newSize;
+    if (!isNaN(parsed) && parsed > 0) {
+      this.state.setPageSize(parsed);
+      this.scrollToResultsTop();
+    }
+  }
+
+  private scrollToResultsTop() {
+    const element = document.getElementById('flight-results-section');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
 
   public tripType: TripType = 'ROUND_TRIP';
   public origin = '';
@@ -755,6 +946,10 @@ export class FlightSearchComponent implements OnInit {
 
     if (type === 'ONE_WAY') {
       this.returnDate = '';
+      this.state.returnFlights.set([]);
+      this.state.returnTotal.set(0);
+      this.state.returnTotalPages.set(1);
+      this.state.returnPage.set(1);
     }
   }
 
@@ -895,6 +1090,12 @@ export class FlightSearchComponent implements OnInit {
     this.hasSearched = false;
     this.state.flights.set([]);
     this.state.returnFlights.set([]);
+    this.state.outboundTotal.set(0);
+    this.state.outboundTotalPages.set(1);
+    this.state.outboundPage.set(1);
+    this.state.returnTotal.set(0);
+    this.state.returnTotalPages.set(1);
+    this.state.returnPage.set(1);
   }
 
   public selectOutbound(flight: Flight) {
@@ -908,10 +1109,18 @@ export class FlightSearchComponent implements OnInit {
           destination: flight.originCode,
           date: this.returnDate || undefined,
           passengers: this.passengers,
+          page: 1,
+          limit: this.state.pageSize(),
         })
         .subscribe({
-          next: (returnList) => {
-            this.state.returnFlights.set(returnList);
+          next: (res: any) => {
+            const items = Array.isArray(res) ? res : (res?.data || []);
+            const total = Array.isArray(res) ? res.length : (res?.total ?? items.length);
+            const totalPages = Array.isArray(res) ? 1 : (res?.totalPages ?? 1);
+            this.state.returnFlights.set(items);
+            this.state.returnTotal.set(total);
+            this.state.returnTotalPages.set(Math.max(1, totalPages));
+            this.state.returnPage.set(1);
           },
           error: (err) => console.error('Error al actualizar vuelos de regreso:', err),
         });

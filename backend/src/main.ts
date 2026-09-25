@@ -55,6 +55,7 @@ async function bootstrap() {
   const { DocumentBuilder, SwaggerModule } = await import('@nestjs/swagger');
   const {
     FlightDto,
+    PaginatedFlightsDto,
     SeatDto,
     FlightMetricsDto,
     CreateBookingRequestDto,
@@ -86,6 +87,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig, {
     extraModels: [
       FlightDto,
+      PaginatedFlightsDto,
       SeatDto,
       FlightMetricsDto,
       CreateBookingRequestDto,

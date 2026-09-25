@@ -42,6 +42,15 @@ export class FlightStateService {
   public readonly tripType = signal<TripType>('ROUND_TRIP');
   public readonly passengers = signal<number>(this.getInitialPassengers());
 
+  // Signals de Paginación
+  public readonly outboundPage = signal<number>(1);
+  public readonly outboundTotal = signal<number>(0);
+  public readonly outboundTotalPages = signal<number>(1);
+  public readonly returnPage = signal<number>(1);
+  public readonly returnTotal = signal<number>(0);
+  public readonly returnTotalPages = signal<number>(1);
+  public readonly pageSize = signal<number>(5);
+
   public setPassengers(count: number) {
     const safe = Math.max(1, Math.min(9, count));
     this.passengers.set(safe);
@@ -101,18 +110,20 @@ export class FlightStateService {
   private setupSocketListeners() {
     // 1. Estado inicial completo de la cabina enviado por el servidor al unirse a la sala
     this.socketService.initialState$.subscribe((payload) => {
-      this.selectedFlight.set(payload.flight);
-      this.seats.set(payload.seats);
-      this.metrics.set(payload.metrics);
+      if (!this.selectedFlight() || this.selectedFlight()?.id === payload.flight?.id) {
+        this.selectedFlight.set(payload.flight);
+        this.seats.set(payload.seats);
+        this.metrics.set(payload.metrics);
 
-      // Verificar si el usuario ya tenía asientos bloqueados previamente
-      const currentUserId = this.userSession.currentUser().id;
-      const mySeats = payload.seats.filter(
-        (s) => s.status === SeatStatus.LOCKED && s.lockedByUserId === currentUserId,
-      );
-      this.myLockedSeats.set(mySeats);
-      if (mySeats.length > 0) {
-        this.startLockCountdown(300);
+        // Verificar si el usuario ya tenía asientos bloqueados previamente
+        const currentUserId = this.userSession.currentUser().id;
+        const mySeats = payload.seats.filter(
+          (s) => s.status === SeatStatus.LOCKED && s.lockedByUserId === currentUserId,
+        );
+        this.myLockedSeats.set(mySeats);
+        if (mySeats.length > 0) {
+          this.startLockCountdown(300);
+        }
       }
     });
 
@@ -241,7 +252,9 @@ export class FlightStateService {
 
     // 7. Métricas en vivo (HU4)
     this.socketService.metrics$.subscribe((m) => {
-      this.metrics.set(m);
+      if (this.selectedFlight()?.id === m.flightId) {
+        this.metrics.set(m);
+      }
     });
 
     // 8. Notificaciones de error genéricas
@@ -250,7 +263,16 @@ export class FlightStateService {
     });
   }
 
-  // Cargar lista de vuelos desde API REST (con soporte de Ida y Vuelta)
+  private lastFilters?: {
+    origin?: string;
+    destination?: string;
+    date?: string;
+    returnDate?: string;
+    passengers?: number;
+    tripType?: TripType;
+  };
+
+  // Cargar lista de vuelos desde API REST (con soporte de Ida y Vuelta y Paginación)
   public loadFlights(filters?: {
     origin?: string;
     destination?: string;
@@ -258,8 +280,22 @@ export class FlightStateService {
     returnDate?: string;
     passengers?: number;
     tripType?: TripType;
+    page?: number;
+    returnPage?: number;
+    limit?: number;
   }) {
     this.isLoading.set(true);
+
+    if (filters) {
+      this.lastFilters = {
+        origin: filters.origin,
+        destination: filters.destination,
+        date: filters.date,
+        returnDate: filters.returnDate,
+        passengers: filters.passengers,
+        tripType: filters.tripType,
+      };
+    }
 
     if (filters?.tripType) {
       this.tripType.set(filters.tripType);
@@ -267,18 +303,49 @@ export class FlightStateService {
     if (filters?.passengers) {
       this.setPassengers(filters.passengers);
     }
+    if (filters?.limit) {
+      this.pageSize.set(filters.limit);
+    }
 
-    // 1. Cargar vuelos de ida
+    const outPage = filters?.page ?? 1;
+    this.outboundPage.set(outPage);
+
+    const retPage = filters?.returnPage ?? 1;
+    this.returnPage.set(retPage);
+
+    this.fetchOutbound(this.lastFilters, outPage);
+
+    const isRound = (filters?.tripType ?? this.tripType()) === 'ROUND_TRIP';
+    if (isRound) {
+      this.fetchReturn(this.lastFilters, retPage);
+    } else {
+      this.returnFlights.set([]);
+      this.returnTotal.set(0);
+      this.returnTotalPages.set(1);
+    }
+  }
+
+  private fetchOutbound(filters?: typeof this.lastFilters, page: number = 1) {
     this.flightApi
       .getFlights({
         origin: filters?.origin,
         destination: filters?.destination,
         date: filters?.date,
         passengers: filters?.passengers ?? this.passengers(),
+        page,
+        limit: this.pageSize(),
       })
       .subscribe({
-        next: (data) => {
-          this.flights.set(data);
+        next: (res: any) => {
+          const items: Flight[] = Array.isArray(res) ? res : (res?.data || []);
+          const total: number = Array.isArray(res) ? res.length : (res?.total ?? items.length);
+          const totalPages: number = Array.isArray(res) ? 1 : (res?.totalPages ?? 1);
+          const currentPage: number = Array.isArray(res) ? page : (res?.page ?? page);
+
+          this.flights.set(items);
+          this.outboundTotal.set(total);
+          this.outboundTotalPages.set(Math.max(1, totalPages));
+          this.outboundPage.set(currentPage);
           this.isLoading.set(false);
         },
         error: (err) => {
@@ -287,42 +354,74 @@ export class FlightStateService {
           console.error(err);
         },
       });
+  }
 
-    // 2. Si es viaje de Ida y Vuelta y se seleccionó origen/destino, cargar vuelos de regreso
-    const isRound = filters?.tripType ? filters.tripType === 'ROUND_TRIP' : this.tripType() === 'ROUND_TRIP';
-    if (isRound && filters?.origin && filters?.destination) {
-      this.flightApi
-        .getFlights({
-          origin: filters.destination,
-          destination: filters.origin,
-          date: filters.returnDate,
-          passengers: filters?.passengers ?? this.passengers(),
-        })
-        .subscribe({
-          next: (returnData) => {
-            this.returnFlights.set(returnData);
-          },
-          error: (err) => {
-            console.error('Error al cargar vuelos de regreso:', err);
-          },
-        });
-    } else if (isRound) {
-      // Si no especificaron origen/destino específico, cargar todos los vuelos de regreso para la fecha
-      this.flightApi
-        .getFlights({
-          date: filters?.returnDate,
-          passengers: filters?.passengers ?? this.passengers(),
-        })
-        .subscribe({
-          next: (returnData) => {
-            this.returnFlights.set(returnData);
-          },
-          error: (err) => {
-            console.error('Error al cargar vuelos de regreso:', err);
-          },
-        });
-    } else {
+  private fetchReturn(filters?: typeof this.lastFilters, page: number = 1) {
+    const isRound = (filters?.tripType ?? this.tripType()) === 'ROUND_TRIP';
+    if (!isRound) {
       this.returnFlights.set([]);
+      this.returnTotal.set(0);
+      this.returnTotalPages.set(1);
+      return;
+    }
+
+    const params: any = {
+      date: filters?.returnDate,
+      passengers: filters?.passengers ?? this.passengers(),
+      page,
+      limit: this.pageSize(),
+    };
+
+    if (filters?.origin && filters?.destination) {
+      params.origin = filters.destination;
+      params.destination = filters.origin;
+    }
+
+    this.flightApi.getFlights(params).subscribe({
+      next: (res: any) => {
+        const items: Flight[] = Array.isArray(res) ? res : (res?.data || []);
+        const total: number = Array.isArray(res) ? res.length : (res?.total ?? items.length);
+        const totalPages: number = Array.isArray(res) ? 1 : (res?.totalPages ?? 1);
+        const currentPage: number = Array.isArray(res) ? page : (res?.page ?? page);
+
+        this.returnFlights.set(items);
+        this.returnTotal.set(total);
+        this.returnTotalPages.set(Math.max(1, totalPages));
+        this.returnPage.set(currentPage);
+      },
+      error: (err) => {
+        console.error('Error al cargar vuelos de regreso:', err);
+      },
+    });
+  }
+
+  public setOutboundPage(page: number) {
+    if (page < 1 || (this.outboundTotalPages() > 0 && page > this.outboundTotalPages())) return;
+    this.outboundPage.set(page);
+    this.fetchOutbound(this.lastFilters, page);
+  }
+
+  public setReturnPage(page: number) {
+    if (page < 1 || (this.returnTotalPages() > 0 && page > this.returnTotalPages())) return;
+    this.returnPage.set(page);
+    this.fetchReturn(this.lastFilters, page);
+  }
+
+  /**
+   * Actualiza el tamaño de página (límite de resultados por página) y
+   * reinicia la paginación a la página 1 para ida y regreso con recarga de datos.
+   */
+  public setPageSize(size: number): void {
+    const validSize = Math.max(1, Math.min(50, size));
+    if (validSize === this.pageSize()) return;
+
+    this.pageSize.set(validSize);
+    this.outboundPage.set(1);
+    this.returnPage.set(1);
+
+    this.fetchOutbound(this.lastFilters, 1);
+    if (this.tripType() === 'ROUND_TRIP') {
+      this.fetchReturn(this.lastFilters, 1);
     }
   }
 
@@ -336,6 +435,9 @@ export class FlightStateService {
     }
 
     this.isLoading.set(true);
+    // Limpiar métricas del vuelo previo para evitar estados residuales
+    this.metrics.set(null);
+
     // Carga inicial vía REST
     this.flightApi.getFlightById(flightId).subscribe({
       next: (flight) => {
@@ -344,6 +446,18 @@ export class FlightStateService {
           next: (seats) => {
             this.seats.set(seats);
             this.isLoading.set(false);
+
+            // Obtener métricas iniciales del vuelo vía REST
+            this.flightApi.getMetricsForFlight(flightId).subscribe({
+              next: (m: FlightMetrics) => {
+                if (this.selectedFlight()?.id === flightId) {
+                  this.metrics.set(m);
+                }
+              },
+              error: () => {
+                // Silencioso: las métricas se computarán reactivamente o llegarán vía WebSocket
+              },
+            });
 
             // Unirse a la sala Socket.io para recibir eventos en vivo
             this.socketService.joinFlight(flightId, currentUserId);

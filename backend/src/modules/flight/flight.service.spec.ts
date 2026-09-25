@@ -74,14 +74,17 @@ describe('FlightService (Catalog & Seats Matrix)', () => {
   });
 
   it('debe listar vuelos filtrados por origen y destino', async () => {
-    const flights = await flightService.searchFlights({
+    const result = await flightService.searchFlights({
       origin: 'BOG',
       destination: 'MDE',
     });
 
-    expect(flights.length).toBeGreaterThan(0);
-    expect(flights[0].originCode).toBe('BOG');
-    expect(flights[0].destinationCode).toBe('MDE');
+    expect(result.data.length).toBeGreaterThan(0);
+    expect(result.data[0].originCode).toBe('BOG');
+    expect(result.data[0].destinationCode).toBe('MDE');
+    expect(result.total).toBeGreaterThan(0);
+    expect(result.page).toBe(1);
+    expect(result.limit).toBe(5);
   });
 
   it('debe generar la cabina completa de 180 asientos para el Airbus A320neo', async () => {
@@ -122,8 +125,8 @@ describe('FlightService (Catalog & Seats Matrix)', () => {
       destination: 'BOG',
     });
 
-    expect(returnFlights.length).toBe(5);
-    const flightNumbers = returnFlights.map((f) => f.flightNumber);
+    expect(returnFlights.data.length).toBe(5);
+    const flightNumbers = returnFlights.data.map((f) => f.flightNumber);
     expect(flightNumbers).toContain('DV-201');
     expect(flightNumbers).toContain('DV-203');
     expect(flightNumbers).toContain('DV-205');
@@ -133,14 +136,14 @@ describe('FlightService (Catalog & Seats Matrix)', () => {
 
   it('debe proyectar vuelos diarios al buscar por una fecha futura sin vuelos exactos', async () => {
     const futureDate = '2026-12-25';
-    const flights = await flightService.searchFlights({
+    const result = await flightService.searchFlights({
       origin: 'BOG',
       destination: 'CTG',
       date: futureDate,
     });
 
-    expect(flights.length).toBe(5);
-    flights.forEach((f) => {
+    expect(result.data.length).toBe(5);
+    result.data.forEach((f) => {
       expect(f.departureTime.startsWith(futureDate)).toBe(true);
       expect(f.originCode).toBe('BOG');
       expect(f.destinationCode).toBe('CTG');
@@ -148,12 +151,13 @@ describe('FlightService (Catalog & Seats Matrix)', () => {
   });
 
   it('debe retornar lista vacía si origen y destino son la misma ciudad', async () => {
-    const flights = await flightService.searchFlights({
+    const result = await flightService.searchFlights({
       origin: 'BOG',
       destination: 'BOG',
     });
 
-    expect(flights).toEqual([]);
+    expect(result.data).toEqual([]);
+    expect(result.total).toBe(0);
   });
 
   it('debe encontrar vuelos reales sembrados para fechas futuras dentro de la semana', async () => {
@@ -161,17 +165,44 @@ describe('FlightService (Catalog & Seats Matrix)', () => {
     futureDate.setDate(futureDate.getDate() + 3);
     const dateStr = futureDate.toISOString().split('T')[0];
 
-    const flights = await flightService.searchFlights({
+    const result = await flightService.searchFlights({
       origin: 'BOG',
       destination: 'MDE',
       date: dateStr,
     });
 
-    expect(flights.length).toBe(5);
-    flights.forEach((f) => {
+    expect(result.data.length).toBe(5);
+    result.data.forEach((f) => {
       expect(f.departureTime.startsWith(dateStr)).toBe(true);
       expect(f.originCode).toBe('BOG');
       expect(f.destinationCode).toBe('MDE');
     });
+  });
+
+  it('debe respetar los parámetros de paginación (page y limit)', async () => {
+    const page1 = await flightService.searchFlights({
+      origin: 'BOG',
+      destination: 'MDE',
+      page: 1,
+      limit: 2,
+    });
+
+    expect(page1.data.length).toBe(2);
+    expect(page1.page).toBe(1);
+    expect(page1.limit).toBe(2);
+    expect(page1.hasNextPage).toBe(true);
+    expect(page1.hasPreviousPage).toBe(false);
+
+    const page2 = await flightService.searchFlights({
+      origin: 'BOG',
+      destination: 'MDE',
+      page: 2,
+      limit: 2,
+    });
+
+    expect(page2.data.length).toBe(2);
+    expect(page2.page).toBe(2);
+    expect(page2.data[0].id).not.toBe(page1.data[0].id);
+    expect(page2.hasPreviousPage).toBe(true);
   });
 });

@@ -10,6 +10,7 @@ import {
   BookingResponseDto,
   Booking,
   City,
+  PaginatedFlightsResult,
 } from '@davivienda/shared';
 
 @Injectable({
@@ -28,14 +29,18 @@ export class FlightApiService {
     destination?: string;
     date?: string;
     passengers?: number;
-  }): Observable<Flight[]> {
+    page?: number;
+    limit?: number;
+  }): Observable<PaginatedFlightsResult> {
     let params = new HttpParams();
     if (filters?.origin) params = params.set('origin', filters.origin);
     if (filters?.destination) params = params.set('destination', filters.destination);
     if (filters?.date) params = params.set('date', filters.date);
     if (filters?.passengers) params = params.set('passengers', filters.passengers.toString());
+    if (filters?.page) params = params.set('page', filters.page.toString());
+    if (filters?.limit) params = params.set('limit', filters.limit.toString());
 
-    return this.http.get<Flight[]>(`${this.baseUrl}/flights`, { params });
+    return this.http.get<PaginatedFlightsResult>(`${this.baseUrl}/flights`, { params });
   }
 
   public getFlightById(id: string): Observable<Flight> {
