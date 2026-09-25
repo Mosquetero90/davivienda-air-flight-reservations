@@ -108,6 +108,55 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return item.value;
   }
 
+  async getKeys(pattern: string): Promise<string[]> {
+    if (this.isConnected && this.client) {
+      try {
+        return await this.client.keys(pattern);
+      } catch (error) {
+        this.logger.error(`Error en Redis getKeys para ${pattern}: ${error}`);
+      }
+    }
+
+    const now = Date.now();
+    const regexPattern = new RegExp(
+      '^' + pattern.replace(/[-[\]{}()+?.,\\^$|#\s]/g, '\\$&').replace(/\*/g, '.*') + '$',
+    );
+    const matchedKeys: string[] = [];
+
+    for (const [key, item] of this.inMemoryStore.entries()) {
+      if (item.expiresAt > now && regexPattern.test(key)) {
+        matchedKeys.push(key);
+      }
+    }
+
+    return matchedKeys;
+  }
+
+  async mget(keys: string[]): Promise<(string | null)[]> {
+    if (!keys || keys.length === 0) {
+      return [];
+    }
+
+    if (this.isConnected && this.client) {
+      try {
+        return await this.client.mget(...keys);
+      } catch (error) {
+        this.logger.error(`Error en Redis mget: ${error}`);
+      }
+    }
+
+    const now = Date.now();
+    return keys.map((key) => {
+      const item = this.inMemoryStore.get(key);
+      if (!item) return null;
+      if (item.expiresAt <= now) {
+        this.inMemoryStore.delete(key);
+        return null;
+      }
+      return item.value;
+    });
+  }
+
   async del(key: string): Promise<boolean> {
     if (this.inMemoryTimers.has(key)) {
       clearTimeout(this.inMemoryTimers.get(key));

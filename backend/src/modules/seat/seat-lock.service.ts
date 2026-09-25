@@ -187,6 +187,46 @@ export class SeatLockService implements OnModuleDestroy {
     return lock !== null && lock.lockedUntil > Date.now();
   }
 
+  /**
+   * Obtiene todos los bloqueos activos para un vuelo en una única consulta batch (elimina N+1 en Redis).
+   */
+  async getActiveLocksMapForFlight(flightId: string): Promise<Map<string, LockData>> {
+    const pattern = `seat:lock:${flightId}:*`;
+    const keys = await this.redisService.getKeys(pattern);
+    const lockMap = new Map<string, LockData>();
+    if (!keys || keys.length === 0) {
+      return lockMap;
+    }
+
+    const rawValues = await this.redisService.mget(keys);
+    const now = Date.now();
+    const prefix = `seat:lock:${flightId}:`;
+
+    for (let i = 0; i < keys.length; i++) {
+      const raw = rawValues[i];
+      if (!raw) continue;
+      try {
+        const data = JSON.parse(raw) as LockData;
+        if (data && data.lockedUntil > now) {
+          const seatId = keys[i].substring(prefix.length);
+          lockMap.set(seatId, data);
+        }
+      } catch {
+        // Ignorar registros corruptos
+      }
+    }
+
+    return lockMap;
+  }
+
+  /**
+   * Obtiene el conjunto de identificadores de asientos bloqueados para un vuelo.
+   */
+  async getLockedSeatIdsForFlight(flightId: string): Promise<Set<string>> {
+    const locksMap = await this.getActiveLocksMapForFlight(flightId);
+    return new Set(locksMap.keys());
+  }
+
   private buildKey(flightId: string, seatId: string): string {
     return `seat:lock:${flightId}:${seatId}`;
   }

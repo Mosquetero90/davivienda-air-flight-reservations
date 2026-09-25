@@ -8,12 +8,164 @@ import {
   IsOptional,
   ValidateNested,
   Length,
+  IsNumber,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // ============================================================================
 // DTOs de Vuelos (HU1)
 // ============================================================================
+
+export class SearchFlightsQueryDto {
+  @ApiPropertyOptional({ example: 'BOG', description: 'Código o nombre de ciudad origen' })
+  @IsOptional()
+  @IsString()
+  origin?: string;
+
+  @ApiPropertyOptional({ example: 'MDE', description: 'Código o nombre de ciudad destino' })
+  @IsOptional()
+  @IsString()
+  destination?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-15', description: 'Fecha de salida (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsString()
+  date?: string;
+
+  @ApiPropertyOptional({ example: 1, description: 'Número de pasajeros solicitados' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(9)
+  passengers?: number;
+}
+
+export class CreateFlightDto {
+  @ApiProperty({ example: 'DV-204', description: 'Número de vuelo comercial' })
+  @IsString()
+  @IsNotEmpty()
+  flightNumber!: string;
+
+  @ApiPropertyOptional({ example: 'Davivienda Air', description: 'Aerolínea operadora' })
+  @IsOptional()
+  @IsString()
+  airline?: string;
+
+  @ApiPropertyOptional({ example: 'Airbus A320neo', description: 'Modelo y configuración de la aeronave' })
+  @IsOptional()
+  @IsString()
+  aircraftModel?: string;
+
+  @ApiProperty({ example: 'Bogotá (BOG)', description: 'Ciudad y terminal aérea de origen' })
+  @IsString()
+  @IsNotEmpty()
+  originCity!: string;
+
+  @ApiProperty({ example: 'BOG', description: 'Código IATA de origen' })
+  @IsString()
+  @Length(3, 10)
+  originCode!: string;
+
+  @ApiProperty({ example: 'Medellín (MDE)', description: 'Ciudad y terminal aérea de destino' })
+  @IsString()
+  @IsNotEmpty()
+  destinationCity!: string;
+
+  @ApiProperty({ example: 'MDE', description: 'Código IATA de destino' })
+  @IsString()
+  @Length(3, 10)
+  destinationCode!: string;
+
+  @ApiProperty({ example: '2026-10-15T08:30:00.000Z', description: 'Fecha y hora estimada de salida' })
+  @IsString()
+  @IsNotEmpty()
+  departureTime!: string;
+
+  @ApiProperty({ example: '2026-10-15T09:25:00.000Z', description: 'Fecha y hora estimada de llegada' })
+  @IsString()
+  @IsNotEmpty()
+  arrivalTime!: string;
+
+  @ApiPropertyOptional({ example: 55, description: 'Duración estimada en minutos' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  durationMinutes?: number;
+
+  @ApiProperty({ example: 285000, description: 'Tarifa base de pasaje estándar' })
+  @IsNumber()
+  @Min(1)
+  basePrice!: number;
+
+  @ApiPropertyOptional({ example: 'COP', description: 'Moneda de la transacción' })
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @ApiPropertyOptional({ enum: ['ON_TIME', 'DELAYED', 'CANCELLED'], example: 'ON_TIME' })
+  @IsOptional()
+  @IsString()
+  status?: FlightStatus;
+
+  @ApiPropertyOptional({ example: '3-3', description: 'Configuración de pasillos y asientos' })
+  @IsOptional()
+  @IsString()
+  cabinLayout?: any;
+
+  @ApiPropertyOptional({ example: 180, description: 'Capacidad total de asientos' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  totalSeats?: number;
+}
+
+export class WsSeatLockRequestDto {
+  @IsString()
+  @IsNotEmpty()
+  flightId!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  seatId!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  userId!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(10)
+  @Max(900)
+  ttlSeconds?: number;
+}
+
+export class WsSeatUnlockRequestDto {
+  @IsString()
+  @IsNotEmpty()
+  flightId!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  seatId!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  userId!: string;
+}
+
+export class WsJoinFlightDto {
+  @IsString()
+  @IsNotEmpty()
+  flightId!: string;
+
+  @IsOptional()
+  @IsString()
+  userId?: string;
+}
 
 export class FlightDto {
   @ApiProperty({ example: 'DV-204', description: 'Identificador único del vuelo' })

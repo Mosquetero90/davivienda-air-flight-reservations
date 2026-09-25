@@ -104,13 +104,31 @@ export class FlightService {
       });
     }
 
-    // Calcular conteo en vivo de asientos disponibles cruzando con Redis
+    // Calcular conteo en vivo de asientos disponibles de forma masiva (elimina N+1 en SQL y Redis)
+    if (entities.length === 0) {
+      return [];
+    }
+
+    const flightIds = entities.map((e) => e.id);
+    const seatCounts = await this.seatRepo
+      .createQueryBuilder('seat')
+      .select('seat.flightId', 'flightId')
+      .addSelect('COUNT(*)', 'count')
+      .where('seat.flightId IN (:...flightIds)', { flightIds })
+      .andWhere('seat.status = :status', { status: SeatStatus.AVAILABLE })
+      .groupBy('seat.flightId')
+      .getRawMany<{ flightId: string; count: string }>();
+
+    const availableDbMap = new Map<string, number>();
+    for (const sc of seatCounts) {
+      availableDbMap.set(sc.flightId, parseInt(sc.count, 10));
+    }
+
     return Promise.all(
       entities.map(async (f) => {
-        const seats = await this.getSeatsForFlight(f.id);
-        const availableCount = seats.filter(
-          (s) => s.status === SeatStatus.AVAILABLE,
-        ).length;
+        const lockedSeatIds = await this.seatLockService.getLockedSeatIdsForFlight(f.id);
+        const dbAvailable = availableDbMap.get(f.id) || 0;
+        const availableCount = Math.max(0, dbAvailable - lockedSeatIds.size);
 
         return {
           id: f.id,
@@ -136,7 +154,7 @@ export class FlightService {
   }
 
   /**
-   * Obtiene un vuelo por su ID desde Base de Datos.
+   * Obtiene un vuelo por su ID desde Base de Datos con conteo optimizado de asientos disponibles.
    */
   async getFlightById(flightId: string): Promise<Flight> {
     const f = await this.flightRepo.findOne({ where: { id: flightId } });
@@ -144,10 +162,11 @@ export class FlightService {
       throw new NotFoundException(`Vuelo con ID ${flightId} no encontrado.`);
     }
 
-    const seats = await this.getSeatsForFlight(flightId);
-    const availableCount = seats.filter(
-      (s) => s.status === SeatStatus.AVAILABLE,
-    ).length;
+    const dbAvailable = await this.seatRepo.count({
+      where: { flightId, status: SeatStatus.AVAILABLE },
+    });
+    const lockedSeatIds = await this.seatLockService.getLockedSeatIdsForFlight(flightId);
+    const availableCount = Math.max(0, dbAvailable - lockedSeatIds.size);
 
     return {
       id: f.id,
@@ -172,7 +191,7 @@ export class FlightService {
 
   /**
    * Obtiene la matriz completa de asientos combinando la persistencia de PostgreSQL/SQLite
-   * con los bloqueos temporales efímeros activos en Redis (HU2).
+   * con los bloqueos temporales efímeros activos en Redis en una única consulta batch (HU2).
    */
   async getSeatsForFlight(flightId: string, currentUserId?: string): Promise<Seat[]> {
     const seatEntities = await this.seatRepo.find({
@@ -186,6 +205,9 @@ export class FlightService {
       );
     }
 
+    // Consulta batch en Redis para todos los bloqueos del vuelo (evita 180 llamadas individuales)
+    const activeLocks = await this.seatLockService.getActiveLocksMapForFlight(flightId);
+    const now = Date.now();
     const result: Seat[] = [];
 
     for (const s of seatEntities) {
@@ -206,9 +228,9 @@ export class FlightService {
         continue;
       }
 
-      // 2. Si no está vendido, consultar a Redis si tiene un bloqueo atómico temporal activo
-      const lock = await this.seatLockService.getLock(flightId, s.seatNumber);
-      if (lock && lock.lockedUntil > Date.now()) {
+      // 2. Si no está vendido, consultar en el mapa de bloqueos activos en Redis
+      const lock = activeLocks.get(s.seatNumber) || activeLocks.get(s.id);
+      if (lock && lock.lockedUntil > now) {
         result.push({
           id: s.seatNumber,
           flightId: s.flightId,
@@ -241,6 +263,21 @@ export class FlightService {
     }
 
     return result;
+  }
+
+  /**
+   * Obtiene un asiento específico por número o ID sin cargar toda la cabina.
+   */
+  async getSeatByNumber(
+    flightId: string,
+    seatNumberOrId: string,
+  ): Promise<SeatEntity | null> {
+    return this.seatRepo.findOne({
+      where: [
+        { flightId, seatNumber: seatNumberOrId },
+        { flightId, id: seatNumberOrId },
+      ],
+    });
   }
 
   /**

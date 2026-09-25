@@ -42,7 +42,7 @@ const logger = new Logger('DatabaseModule');
               CityEntity,
               AirportEntity,
             ],
-            synchronize: true, // Crea las tablas automáticamente en desarrollo/demo
+            synchronize: process.env.NODE_ENV !== 'production', // Seguro: solo recrea esquemas en desarrollo/demo
             logging: false,
           };
         }

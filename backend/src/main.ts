@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { GlobalHttpExceptionFilter } from './common/filters/global-http-exception.filter';
 import helmet from 'helmet';
 
 async function bootstrap() {
@@ -46,6 +47,9 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  // 4. Filtro global estandarizado para manejo y saneamiento de excepciones
+  app.useGlobalFilters(new GlobalHttpExceptionFilter());
 
   // Configuración de Documentación Interactiva Swagger / OpenAPI
   const { DocumentBuilder, SwaggerModule } = await import('@nestjs/swagger');
@@ -109,6 +113,7 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 3000;
+  app.enableShutdownHooks();
   await app.listen(port);
 
   logger.log(`===================================================================`);

@@ -8,7 +8,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Logger, OnModuleInit } from '@nestjs/common';
+import { Logger, OnModuleInit, UsePipes, ValidationPipe } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import {
   WsEvents,
@@ -28,11 +28,21 @@ import { FlightService } from '../modules/flight/flight.service';
 import { SeatLockService } from '../modules/seat/seat-lock.service';
 import { BookingService } from '../modules/booking/booking.service';
 import { MetricsService } from '../modules/metrics/metrics.service';
+import {
+  WsJoinFlightDto,
+  WsSeatLockRequestDto,
+  WsSeatUnlockRequestDto,
+} from '../common/dto/swagger-models.dto';
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  : ['http://localhost:4200', 'http://localhost:3000', 'http://127.0.0.1:4200'];
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 })
 export class FlightGateway
@@ -120,10 +130,11 @@ export class FlightGateway
   /**
    * Suscribe al cliente a la sala de un vuelo específico y entrega el estado inicial completo.
    */
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   @SubscribeMessage(WsEvents.JOIN_FLIGHT)
   async handleJoinFlight(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: JoinFlightPayload,
+    @MessageBody() data: WsJoinFlightDto,
   ) {
     const { flightId, userId } = data;
     const roomName = `flight_${flightId}`;
@@ -165,22 +176,24 @@ export class FlightGateway
   /**
    * Procesa la solicitud atómica de bloqueo temporal de un asiento (HU2).
    */
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   @SubscribeMessage(WsEvents.SEAT_LOCK_REQUEST)
   async handleSeatLockRequest(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: SeatLockRequestPayload,
+    @MessageBody() data: WsSeatLockRequestDto,
   ) {
-    const { flightId, seatId, userId } = data;
+    const { flightId, seatId, userId, ttlSeconds } = data;
     const seatNumber = seatId;
+    const ttl = ttlSeconds || 300;
 
     try {
-      // 1. Ejecutar bloqueo atómico en SeatLockService con TTL de 300 segundos (5 min)
+      // 1. Ejecutar bloqueo atómico en SeatLockService con TTL en segundos (default 300s / 5 min)
       const lockResult = await this.seatLockService.acquireLock(
         flightId,
         seatId,
         seatNumber,
         userId,
-        300,
+        ttl,
       );
 
       const eventPayload: SeatLockedEventPayload = {
@@ -218,10 +231,11 @@ export class FlightGateway
   /**
    * Procesa la solicitud de desbloqueo manual del asiento por el usuario.
    */
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   @SubscribeMessage(WsEvents.SEAT_UNLOCK_REQUEST)
   async handleSeatUnlockRequest(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: SeatUnlockRequestPayload,
+    @MessageBody() data: WsSeatUnlockRequestDto,
   ) {
     const { flightId, seatId, userId } = data;
     await this.seatLockService.releaseLock(

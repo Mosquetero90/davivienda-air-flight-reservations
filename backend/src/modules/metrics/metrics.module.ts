@@ -1,9 +1,11 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { MetricsService } from './metrics.service';
+import { MetricsController } from './metrics.controller';
 import { FlightModule } from '../flight/flight.module';
 
 @Module({
-  imports: [forwardRef(() => FlightModule)],
+  imports: [FlightModule],
+  controllers: [MetricsController],
   providers: [MetricsService],
   exports: [MetricsService],
 })

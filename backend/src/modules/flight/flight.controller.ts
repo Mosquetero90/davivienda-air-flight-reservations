@@ -16,14 +16,14 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { FlightService } from './flight.service';
-import { MetricsService } from '../metrics/metrics.service';
-import { Flight, FlightMetrics, FlightStatus, Seat } from '@davivienda/shared';
+import { Flight, FlightStatus, Seat } from '@davivienda/shared';
 import {
   FlightDto,
   SeatDto,
-  FlightMetricsDto,
   UpdateFlightStatusDto,
   ErrorResponseDto,
+  SearchFlightsQueryDto,
+  CreateFlightDto,
 } from '../../common/dto/swagger-models.dto';
 
 @ApiTags('Vuelos')
@@ -31,7 +31,6 @@ import {
 export class FlightController {
   constructor(
     private readonly flightService: FlightService,
-    private readonly metricsService: MetricsService,
   ) {}
 
   @Get()
@@ -41,13 +40,8 @@ export class FlightController {
   @ApiQuery({ name: 'date', required: false, description: 'Fecha de salida (YYYY-MM-DD)' })
   @ApiQuery({ name: 'passengers', required: false, description: 'Número de pasajeros solicitados (ej: 1)' })
   @ApiResponse({ status: 200, type: [FlightDto], description: 'Listado de vuelos encontrados' })
-  async searchFlights(
-    @Query('origin') origin?: string,
-    @Query('destination') destination?: string,
-    @Query('date') date?: string,
-    @Query('passengers') passengers?: number,
-  ): Promise<Flight[]> {
-    return this.flightService.searchFlights({ origin, destination, date, passengers });
+  async searchFlights(@Query() query: SearchFlightsQueryDto): Promise<Flight[]> {
+    return this.flightService.searchFlights(query);
   }
 
   @Get(':id')
@@ -69,21 +63,11 @@ export class FlightController {
     return this.flightService.getSeatsForFlight(id);
   }
 
-  @Get(':id/metrics')
-  @ApiTags('Métricas')
-  @ApiOperation({ summary: 'Consultar métricas de ocupación del vuelo' })
-  @ApiParam({ name: 'id', description: 'Identificador del vuelo (ej: DV-204)' })
-  @ApiResponse({ status: 200, type: FlightMetricsDto, description: 'Métricas de ocupación y desglose de cabina' })
-  @ApiResponse({ status: 404, type: ErrorResponseDto, description: 'Vuelo no encontrado' })
-  async getMetrics(@Param('id') id: string): Promise<FlightMetrics> {
-    return this.metricsService.getMetricsForFlight(id);
-  }
-
   @Post()
   @ApiOperation({ summary: 'Crear un nuevo vuelo' })
   @ApiResponse({ status: 201, type: FlightDto, description: 'Vuelo creado exitosamente' })
-  async createFlight(@Body() data: any): Promise<Flight> {
-    return this.flightService.createFlight(data);
+  async createFlight(@Body() data: CreateFlightDto): Promise<Flight> {
+    return this.flightService.createFlight(data as any);
   }
 
   @Patch(':id/status')

@@ -16,6 +16,7 @@ import {
   BookingEntity,
   PassengerEntity,
   PaymentEntity,
+  SeatEntity,
 } from '../../database/entities';
 import { FlightService } from '../flight/flight.service';
 import { SeatLockService } from '../seat/seat-lock.service';
@@ -60,8 +61,7 @@ export class BookingService {
     const flight = await this.flightService.getFlightById(flightId);
 
     // 2. Verificar que el asiento exista y esté disponible
-    const seats = await this.flightService.getSeatsForFlight(flightId);
-    const seat = seats.find((s) => s.id === seatId || s.seatNumber === seatId);
+    const seat = await this.flightService.getSeatByNumber(flightId, seatId);
 
     if (!seat) {
       throw new BadRequestException(
@@ -113,7 +113,7 @@ export class BookingService {
         seatId: `${flightId}-${seat.seatNumber}`,
         seatNumber: seat.seatNumber,
         userId,
-        totalPrice: seat.price,
+        totalPrice: Number(seat.price),
         currency: flight.currency,
         status: 'CONFIRMED',
       });
@@ -137,17 +137,16 @@ export class BookingService {
         method: payment.method,
         lastFourDigits: payment.cardNumber?.slice(-4) || '4411',
         transactionId: `TX-DAV-${Date.now()}`,
-        amount: seat.price,
+        amount: Number(seat.price),
         status: 'APPROVED',
       });
       await queryRunner.manager.save(paymentRecord);
 
-      // 5.4 Marcar asiento permanentemente como BOOKED en PostgreSQL
-      await this.flightService.markSeatAsBooked(
-        flightId,
-        seat.seatNumber,
-        userId,
-        bookingReference,
+      // 5.4 Marcar asiento permanentemente como BOOKED en PostgreSQL DENTRO de la transacción
+      await queryRunner.manager.update(
+        SeatEntity,
+        { flightId, seatNumber: seat.seatNumber },
+        { status: SeatStatus.BOOKED, bookingReference },
       );
 
       // Commit de la transacción ACID
@@ -159,6 +158,15 @@ export class BookingService {
     } finally {
       await queryRunner.release();
     }
+
+    // 5.5 Liberar lock en Redis ÚNICAMENTE tras el commit exitoso de la transacción
+    await this.seatLockService.releaseLock(
+      flightId,
+      seat.seatNumber,
+      seat.seatNumber,
+      userId,
+      'BOOKED',
+    );
 
     this.logger.log(
       `✓ RESERVA EXITOSA (ACID COMMIT): PNR ${bookingReference} | Vuelo ${flight.flightNumber} | Asiento ${seat.seatNumber} | Pasajero ${passenger.firstName} ${passenger.lastName}`,

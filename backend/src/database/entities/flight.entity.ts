@@ -5,12 +5,14 @@ import {
   OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { FlightStatus, CabinLayout } from '@davivienda/shared';
 import { SeatEntity } from './seat.entity';
 import { BookingEntity } from './booking.entity';
 
 @Entity('flights')
+@Index(['originCode', 'destinationCode', 'departureTime'])
 export class FlightEntity {
   @PrimaryColumn({ type: 'varchar', length: 50 })
   id: string; // ej: "DV-204"
@@ -24,18 +26,21 @@ export class FlightEntity {
   @Column({ type: 'varchar', length: 50, default: 'Airbus A320neo' })
   aircraftModel: string;
 
+  @Index()
   @Column({ type: 'varchar', length: 10 })
   originCode: string;
 
   @Column({ type: 'varchar', length: 100 })
   originCity: string;
 
+  @Index()
   @Column({ type: 'varchar', length: 10 })
   destinationCode: string;
 
   @Column({ type: 'varchar', length: 100 })
   destinationCity: string;
 
+  @Index()
   @Column({ type: 'varchar' })
   departureTime: string;
 
