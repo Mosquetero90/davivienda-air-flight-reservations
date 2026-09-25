@@ -6,10 +6,11 @@ WORKDIR /app
 # Copy root manifests and workspace configs
 COPY package.json package-lock.json ./
 COPY shared ./shared
+COPY backend/package.json ./backend/package.json
 COPY frontend ./frontend
 
 # Install dependencies and build shared + frontend
-RUN npm ci
+RUN npm ci --ignore-scripts
 RUN npm run build:shared
 RUN npm run build --workspace=frontend
 
