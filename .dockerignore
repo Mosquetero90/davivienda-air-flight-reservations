@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+.agents
+.specs
+.vscode
+*.sqlite
+coverage
