@@ -28,6 +28,7 @@ flowchart TD
     subgraph Backend["Backend Server (NestJS Modular Monolith)"]
         subgraph Ports["Puertos de Entrada"]
             REST_Ctrl["REST API Controllers (HTTP)"]
+            Swagger_UI["Swagger UI / OpenAPI 3.0 (/api/docs)"]
             WS_Gateway["WebSocket Gateway (Socket.io)"]
         end
 

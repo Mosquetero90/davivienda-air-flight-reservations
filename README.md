@@ -112,6 +112,7 @@ docker compose up --build
 
 * 🌐 **Frontend (Angular 18):** [http://localhost:4200](http://localhost:4200)
 * ⚙️ **Backend REST & WebSockets:** [http://localhost:3000](http://localhost:3000)
+* 📚 **Documentación Interactiva Swagger / OpenAPI:** [http://localhost:3000/api/docs](http://localhost:3000/api/docs)
 * 📊 **PostgreSQL:** `localhost:5432` (`davivienda` / `davivienda123`)
 * ⚡ **Redis:** `localhost:6379`
 
