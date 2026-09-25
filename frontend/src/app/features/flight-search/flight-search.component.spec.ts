@@ -384,4 +384,106 @@ describe('FlightSearchComponent (Round-Trip Flight Timing Validation)', () => {
       expect(notifSpy).toHaveBeenCalledWith('Debes seleccionar la fecha de ida', 'warning');
     });
   });
+
+  describe('Flight Pagination Controls', () => {
+    it('should compute currentPage, totalPages, totalCount, hasNextPage, hasPreviousPage based on active tab and state', () => {
+      state.outboundPage.set(1);
+      state.outboundTotal.set(12);
+      state.outboundTotalPages.set(3);
+
+      state.returnPage.set(2);
+      state.returnTotal.set(8);
+      state.returnTotalPages.set(2);
+
+      component.tripType = 'ROUND_TRIP';
+      component.activeTab = 'outbound';
+
+      expect(component.currentPage).toBe(1);
+      expect(component.totalPages).toBe(3);
+      expect(component.totalCount).toBe(12);
+      expect(component.hasPreviousPage).toBeFalse();
+      expect(component.hasNextPage).toBeTrue();
+
+      component.activeTab = 'return';
+
+      expect(component.currentPage).toBe(2);
+      expect(component.totalPages).toBe(2);
+      expect(component.totalCount).toBe(8);
+      expect(component.hasPreviousPage).toBeTrue();
+      expect(component.hasNextPage).toBeFalse();
+    });
+
+    it('should generate visiblePages correctly', () => {
+      state.outboundTotalPages.set(3);
+      state.outboundPage.set(1);
+      component.activeTab = 'outbound';
+
+      expect(component.visiblePages).toEqual([1, 2, 3]);
+
+      state.outboundTotalPages.set(10);
+      state.outboundPage.set(5);
+
+      expect(component.visiblePages).toEqual([3, 4, 5, 6, 7]);
+    });
+
+    it('should delegate page navigation to state.setOutboundPage and state.setReturnPage', () => {
+      const setOutboundSpy = spyOn(state, 'setOutboundPage');
+      const setReturnSpy = spyOn(state, 'setReturnPage');
+
+      state.outboundTotalPages.set(4);
+      state.outboundPage.set(1);
+      component.activeTab = 'outbound';
+
+      component.goToPage(2);
+      expect(setOutboundSpy).toHaveBeenCalledWith(2);
+
+      component.tripType = 'ROUND_TRIP';
+      component.activeTab = 'return';
+      state.returnTotalPages.set(4);
+      state.returnPage.set(1);
+
+      component.goToPage(3);
+      expect(setReturnSpy).toHaveBeenCalledWith(3);
+    });
+
+    it('should advance and retreat with nextPage and prevPage', () => {
+      state.outboundTotalPages.set(4);
+      state.outboundPage.set(2);
+      component.tripType = 'ONE_WAY';
+
+      const goToPageSpy = spyOn(component, 'goToPage');
+
+      component.nextPage();
+      expect(goToPageSpy).toHaveBeenCalledWith(3);
+
+      component.prevPage();
+      expect(goToPageSpy).toHaveBeenCalledWith(1);
+    });
+
+    it('should compute startItemIndex and endItemIndex accurately', () => {
+      component.tripType = 'ONE_WAY';
+      state.outboundTotal.set(14);
+      state.outboundPage.set(1);
+      state.pageSize.set(5);
+
+      expect(component.startItemIndex).toBe(1);
+      expect(component.endItemIndex).toBe(5);
+
+      // En la última página
+      state.outboundPage.set(3);
+      expect(component.startItemIndex).toBe(11);
+      expect(component.endItemIndex).toBe(14);
+
+      // Cuando no hay resultados
+      state.outboundTotal.set(0);
+      expect(component.startItemIndex).toBe(0);
+      expect(component.endItemIndex).toBe(0);
+    });
+
+    it('should delegate page size change to state.setPageSize and reset pagination', () => {
+      const setPageSizeSpy = spyOn(state, 'setPageSize');
+      component.onPageSizeChange(10);
+      expect(setPageSizeSpy).toHaveBeenCalledWith(10);
+    });
+  });
 });
