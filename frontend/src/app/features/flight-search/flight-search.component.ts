@@ -5,19 +5,22 @@ import { RouterModule, Router } from '@angular/router';
 import { FlightStateService } from '../../core/state/flight-state.service';
 import { FlightApiService } from '../../core/services/flight-api.service';
 import { Flight, FlightStatus, City } from '@davivienda/shared';
+import { DatePickerComponent } from '../../shared/components/date-picker/date-picker.component';
 
 @Component({
   selector: 'app-flight-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, DatePickerComponent],
   template: `
     <div class="min-h-screen bg-slate-50 pb-16">
       
       <!-- Davivienda Hero Banner & Quick Search -->
-      <section class="bg-gradient-to-r from-red-600 via-davivienda to-red-700 text-white pt-10 pb-16 px-4 sm:px-6 lg:px-8 shadow-lg relative overflow-hidden">
-        <!-- Background subtle geometric accents -->
-        <div class="absolute -right-16 -top-16 w-80 h-80 rounded-full bg-white/5 blur-2xl pointer-events-none"></div>
-        <div class="absolute -left-16 -bottom-16 w-80 h-80 rounded-full bg-white/10 blur-2xl pointer-events-none"></div>
+      <section class="bg-gradient-to-r from-red-600 via-davivienda to-red-700 text-white pt-10 pb-16 px-4 sm:px-6 lg:px-8 shadow-lg relative z-20">
+        <!-- Background subtle geometric accents isolated in overflow-hidden container -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+          <div class="absolute -right-16 -top-16 w-80 h-80 rounded-full bg-white/5 blur-2xl"></div>
+          <div class="absolute -left-16 -bottom-16 w-80 h-80 rounded-full bg-white/10 blur-2xl"></div>
+        </div>
 
         <div class="max-w-6xl mx-auto relative z-10">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -47,7 +50,7 @@ import { Flight, FlightStatus, City } from '@davivienda/shared';
           </div>
 
           <!-- Search Filter Bar -->
-          <div class="bg-white text-slate-800 p-4 sm:p-5 rounded-2xl shadow-xl border border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+          <div class="bg-white text-slate-800 p-4 sm:p-5 rounded-2xl shadow-xl border border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 relative z-30">
             <div>
               <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Origen</label>
               <div class="relative">
@@ -81,12 +84,11 @@ import { Flight, FlightStatus, City } from '@davivienda/shared';
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Fecha</label>
-              <input
-                type="date"
+              <app-date-picker
+                label="Fecha"
+                placeholder="Seleccionar fecha"
                 [(ngModel)]="date"
-                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-davivienda/20 focus:border-davivienda"
-              />
+              ></app-date-picker>
             </div>
 
             <div class="flex items-end">
@@ -106,7 +108,7 @@ import { Flight, FlightStatus, City } from '@davivienda/shared';
       </section>
 
       <!-- Main Flight Cards Grid -->
-      <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+      <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 relative z-10">
         
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
