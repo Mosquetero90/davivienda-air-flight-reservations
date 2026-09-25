@@ -24,21 +24,52 @@ async function bootstrap() {
 
   // Configuración de Documentación Interactiva Swagger / OpenAPI
   const { DocumentBuilder, SwaggerModule } = await import('@nestjs/swagger');
+  const {
+    FlightDto,
+    SeatDto,
+    FlightMetricsDto,
+    CreateBookingRequestDto,
+    BookingResponseDto: SwaggerBookingResponseDto,
+    PassengerDto,
+    PaymentDto,
+    UpdateFlightStatusDto,
+    ErrorResponseDto,
+  } = await import('./common/dto/swagger-models.dto');
+
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('✈️ Davivienda Air — API REST de Reservas de Vuelos')
+    .setTitle('Davivienda Air — API REST')
     .setDescription(
-      'Documentación interactiva OpenAPI/Swagger para el Sistema de Reservas en Tiempo Real con Concurrencia Atómica (Redis) y Persistencia ACID (PostgreSQL). Cumple con los requerimientos de la prueba técnica para Especialista Desarrollador Líder Técnico — Banco Davivienda.',
+      'API REST para la búsqueda y consulta de vuelos, mapa de asientos de cabina Airbus A320, confirmación de reservas y métricas de ocupación.',
     )
     .setVersion('1.0.0')
-    .addTag('Vuelos (HU1)', 'Consulta, búsqueda con filtros, disponibilidad y estados operativos en vivo')
-    .addTag('Cabina y Asientos (HU2)', 'Matriz de 180 asientos del Airbus A320 y bloqueos temporales concurrentes')
-    .addTag('Reservas y Pagos (HU3)', 'Emisión de PNR, pasabordo digital y transacciones ACID con DaviPlata')
-    .addTag('Métricas y Telemetría (HU4)', 'Monitoreo de ocupación de cabina y KPIs en tiempo real')
+    .addTag('Vuelos', 'Búsqueda, consulta y administración de vuelos')
+    .addTag('Asientos', 'Matriz de asientos y disponibilidad de cabina')
+    .addTag('Reservas', 'Creación y consulta de reservas de vuelos')
+    .addTag('Métricas', 'Métricas de ocupación y telemetría de cabina')
     .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  const document = SwaggerModule.createDocument(app, swaggerConfig, {
+    extraModels: [
+      FlightDto,
+      SeatDto,
+      FlightMetricsDto,
+      CreateBookingRequestDto,
+      SwaggerBookingResponseDto,
+      PassengerDto,
+      PaymentDto,
+      UpdateFlightStatusDto,
+      ErrorResponseDto,
+    ],
+  });
+
   SwaggerModule.setup('api/docs', app, document, {
-    customSiteTitle: 'Davivienda Air — Swagger API Docs',
+    customSiteTitle: 'Davivienda Air — API REST',
+    swaggerOptions: {
+      persistAuthorization: true,
+      displayRequestDuration: true,
+      docExpansion: 'list',
+      filter: true,
+    },
   });
 
   const port = process.env.PORT || 3000;
