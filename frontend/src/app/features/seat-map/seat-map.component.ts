@@ -88,11 +88,11 @@ import { Seat, SeatClass, SeatStatus } from '@davivienda/shared';
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
               <span class="w-3 h-3 rounded bg-amber-400 border border-amber-500"></span>
-              <span class="text-slate-600">Bloqueado</span>
+              <span class="text-slate-600">Reservado temporalmente</span>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
               <span class="w-3 h-3 rounded bg-slate-300 border border-slate-400"></span>
-              <span class="text-slate-400">Ocupado</span>
+              <span class="text-slate-400">Ocupado / Vendido</span>
             </div>
           </div>
 
@@ -254,8 +254,8 @@ import { Seat, SeatClass, SeatStatus } from '@davivienda/shared';
               <p class="font-bold">Asiento {{ seat.seatNumber }} &bull; {{ seat.seatClass }}</p>
               <p class="text-slate-300">$ {{ seat.price | number }} COP</p>
               <p *ngIf="isSeatMine(seat)" class="text-emerald-400 font-bold">¡Tu asiento reservado!</p>
-              <p *ngIf="isLockedByOther(seat)" class="text-amber-400 font-bold">Bloqueado temporalmente ({{ seat.lockedByUserId }})</p>
-              <p *ngIf="seat.status === 'BOOKED'" class="text-slate-400">Ocupado permanentemente</p>
+              <p *ngIf="isLockedByOther(seat)" class="text-amber-400 font-bold">Asiento reservado temporalmente</p>
+              <p *ngIf="seat.status === 'BOOKED'" class="text-slate-400 font-bold">Ocupado / Vendido</p>
             </div>
           </div>
         </div>
@@ -611,8 +611,8 @@ export class SeatMapComponent implements OnInit, OnDestroy {
 
   public getSeatTooltip(seat: Seat): string {
     if (this.isSeatMine(seat)) return `Tu asiento: ${seat.seatNumber}`;
-    if (this.isLockedByOther(seat)) return `Bloqueado por ${seat.lockedByUserId}`;
-    if (seat.status === SeatStatus.BOOKED) return `Asiento ${seat.seatNumber} Ocupado`;
+    if (this.isLockedByOther(seat)) return `Asiento ${seat.seatNumber} reservado temporalmente`;
+    if (seat.status === SeatStatus.BOOKED) return `Asiento ${seat.seatNumber} ocupado / vendido`;
     return `Asiento ${seat.seatNumber} - $ ${seat.price} COP`;
   }
 
