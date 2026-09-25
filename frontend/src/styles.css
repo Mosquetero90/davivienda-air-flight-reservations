@@ -8,7 +8,30 @@
   }
 }
 
-/* Custom scrollbars for cabin seat maps */
+/* Números tabulares para evitar Layout Shift (CLS) en contadores y precios */
+.font-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Utilidades para animación de Tarjeta de Crédito 3D */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* Custom scrollbars para mapa de cabina táctil */
 .cabin-scrollbar::-webkit-scrollbar {
   height: 6px;
   width: 6px;
@@ -33,4 +56,19 @@
 
 .animate-pulse-ring {
   animation: pulse-ring 2s infinite ease-in-out;
+}
+
+/* Reglas de impresión para Pasabordos Digitales */
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  header, footer, nav, button, .print\:hidden {
+    display: none !important;
+  }
+  .print\:border-none {
+    border: none !important;
+    box-shadow: none !important;
+  }
 }

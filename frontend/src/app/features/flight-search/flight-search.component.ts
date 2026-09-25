@@ -7,6 +7,7 @@ import { FlightApiService } from '../../core/services/flight-api.service';
 import { Flight, FlightStatus, City, TripType } from '@davivienda/shared';
 import { DatePickerComponent } from '../../shared/components/date-picker/date-picker.component';
 import { PassengerSelectorComponent } from '../../shared/components/passenger-selector/passenger-selector.component';
+import { FunnelStepperComponent } from '../../shared/components/funnel-stepper/funnel-stepper.component';
 
 @Component({
   selector: 'app-flight-search',
@@ -17,9 +18,12 @@ import { PassengerSelectorComponent } from '../../shared/components/passenger-se
     RouterModule,
     DatePickerComponent,
     PassengerSelectorComponent,
+    FunnelStepperComponent,
   ],
   template: `
     <div class="min-h-screen bg-slate-50 pb-20">
+      <!-- Stepper Global del Embudo de Reserva -->
+      <app-funnel-stepper currentStep="flights" />
       
       <!-- Davivienda Hero Banner & Modern Airline Search Controls -->
       <section class="bg-gradient-to-r from-red-600 via-davivienda to-red-700 text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 shadow-lg relative z-20">
