@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
 import { FlightStateService } from '../../core/state/flight-state.service';
+import { FlightApiService } from '../../core/services/flight-api.service';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
 
@@ -14,22 +15,22 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
     <div class="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
       <div class="max-w-4xl mx-auto">
         
-        <!-- Case 1: Booking Confirmed Screen (Boarding Pass / Pasabordo Digital) -->
-        <div *ngIf="confirmedBooking()" class="animate-in fade-in zoom-in-95 duration-500">
+        <!-- Case 1: Booking Confirmed Screen (Boarding Passes / Pasabordos Digitales) -->
+        <div *ngIf="confirmedBooking()" class="animate-in fade-in zoom-in-95 duration-500 space-y-8">
           
-          <div class="text-center mb-8">
+          <div class="text-center mb-6">
             <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl font-black shadow-inner mb-3">
               ✓
             </div>
             <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              ¡Tu Reserva ha sido Confirmada!
+              ¡Tu Reserva {{ isRoundTrip() ? 'de Ida y Vuelta' : '' }} ha sido Confirmada!
             </h1>
             <p class="text-xs sm:text-sm text-slate-500 mt-1">
-              Hemos enviado la confirmación y el tiquete electrónico a tu correo registrado.
+              Hemos emitido tus tiquetes electrónicos y enviado la confirmación a tu correo registrado.
             </p>
           </div>
 
-          <!-- Digital Boarding Pass Ticket Card -->
+          <!-- Boarding Pass 1: Vuelo de Ida -->
           <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-w-2xl mx-auto relative">
             
             <!-- Red Header -->
@@ -40,11 +41,13 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                 </div>
                 <div>
                   <span class="font-extrabold text-lg tracking-wider">DAVIVIENDA AIR</span>
-                  <p class="text-[11px] text-red-100">Pasabordo Digital &bull; Vuelo Nacional</p>
+                  <p class="text-[11px] text-red-100">
+                    {{ isRoundTrip() ? 'Pasabordo 1 &bull; Vuelo de Ida' : 'Pasabordo Digital &bull; Vuelo Nacional' }}
+                  </p>
                 </div>
               </div>
               <div class="text-right">
-                <span class="text-[10px] text-red-100 font-bold uppercase tracking-widest block">Código PNR</span>
+                <span class="text-[10px] text-red-100 font-bold uppercase tracking-widest block">Código PNR Ida</span>
                 <span class="font-mono text-xl sm:text-2xl font-black tracking-widest text-amber-300">
                   {{ confirmedBooking()?.bookingReference }}
                 </span>
@@ -59,7 +62,10 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                 <div>
                   <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Origen</span>
                   <h3 class="text-2xl font-black text-slate-900">{{ confirmedBooking()?.origin }}</h3>
-                  <p class="text-xs font-semibold text-slate-500">{{ confirmedBooking()?.departureTime | date:'shortTime' }}</p>
+                  <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <span class="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">📅 {{ confirmedBooking()?.departureTime | date:'EEE, d MMM yyyy' }}</span>
+                    <span class="text-xs font-semibold text-slate-500">🕒 {{ confirmedBooking()?.departureTime | date:'shortTime' }}</span>
+                  </div>
                 </div>
                 
                 <div class="flex flex-col items-center">
@@ -71,18 +77,22 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                 <div class="text-right">
                   <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Destino</span>
                   <h3 class="text-2xl font-black text-slate-900">{{ confirmedBooking()?.destination }}</h3>
-                  <p class="text-xs font-semibold text-slate-500">Hora estimada llegada</p>
+                  <p class="text-xs font-semibold text-slate-500">Llegada estimada</p>
                 </div>
               </div>
 
               <!-- Passenger & Seat Details Grid -->
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 pb-6 border-b border-slate-100">
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 pb-6 border-b border-slate-100">
+                <div>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Fecha</span>
+                  <p class="text-xs font-bold text-slate-800 mt-0.5">{{ confirmedBooking()?.departureTime | date:'dd MMM yyyy' }}</p>
+                </div>
                 <div>
                   <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pasajero</span>
                   <p class="text-xs font-bold text-slate-800 mt-0.5 truncate">{{ confirmedBooking()?.passengerName }}</p>
                 </div>
                 <div>
-                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Asiento</span>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Asiento(s)</span>
                   <p class="text-base font-black text-davivienda mt-0.5">{{ confirmedBooking()?.seatNumber }}</p>
                 </div>
                 <div>
@@ -95,28 +105,23 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                 </div>
               </div>
 
-              <!-- Barcode / QR Simulation -->
+              <!-- Barcode / Total Grid -->
               <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
                 <div class="flex items-center gap-2">
-                  <!-- Barcode Visual Lines -->
-                  <div class="flex items-center gap-1 h-12 bg-slate-100 px-4 rounded-xl border border-slate-200">
-                    <span class="w-1 h-8 bg-slate-800"></span>
-                    <span class="w-2 h-8 bg-slate-800"></span>
-                    <span class="w-0.5 h-8 bg-slate-800"></span>
-                    <span class="w-1.5 h-8 bg-slate-800"></span>
-                    <span class="w-1 h-8 bg-slate-800"></span>
-                    <span class="w-2.5 h-8 bg-slate-800"></span>
-                    <span class="w-1 h-8 bg-slate-800"></span>
-                    <span class="w-0.5 h-8 bg-slate-800"></span>
-                    <span class="w-2 h-8 bg-slate-800"></span>
-                    <span class="w-1 h-8 bg-slate-800"></span>
+                  <div class="flex items-center gap-1 h-10 bg-slate-100 px-3 rounded-xl border border-slate-200">
+                    <span class="w-1 h-6 bg-slate-800"></span>
+                    <span class="w-2 h-6 bg-slate-800"></span>
+                    <span class="w-0.5 h-6 bg-slate-800"></span>
+                    <span class="w-1.5 h-6 bg-slate-800"></span>
+                    <span class="w-1 h-6 bg-slate-800"></span>
+                    <span class="w-2 h-6 bg-slate-800"></span>
                   </div>
                   <span class="font-mono text-xs text-slate-500 font-bold">{{ confirmedBooking()?.bookingReference }}</span>
                 </div>
 
                 <div class="text-right">
-                  <span class="text-[10px] text-slate-400 block font-medium">Total Pagado:</span>
-                  <span class="text-lg font-black text-slate-900">
+                  <span class="text-[10px] text-slate-400 block font-medium">Pagado Ida:</span>
+                  <span class="text-base font-black text-slate-900">
                     $ {{ confirmedBooking()?.totalPaid | number }} COP
                   </span>
                 </div>
@@ -124,23 +129,125 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
 
             </div>
 
-            <!-- Action buttons below ticket -->
-            <div class="bg-slate-50 px-8 py-4 border-t border-slate-100 flex items-center justify-between">
-              <button
-                onclick="window.print()"
-                class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5"
-              >
-                <span>🖨️ Imprimir Pasabordo</span>
-              </button>
+          </div>
 
-              <a
-                routerLink="/flights"
-                class="px-5 py-2.5 rounded-xl bg-davivienda hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-200 transition-colors"
-              >
-                Volver a Vuelos
-              </a>
+          <!-- Boarding Pass 2: Vuelo de Regreso (si existe) -->
+          <div
+            *ngIf="confirmedReturnBooking()"
+            class="bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-w-2xl mx-auto relative animate-in fade-in slide-in-from-bottom-2 duration-500"
+          >
+            <!-- Blue/Davivienda Header -->
+            <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-davivienda text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-sm">
+                  🔄
+                </div>
+                <div>
+                  <span class="font-extrabold text-lg tracking-wider">DAVIVIENDA AIR</span>
+                  <p class="text-[11px] text-slate-300">Pasabordo 2 &bull; Vuelo de Regreso</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="text-[10px] text-slate-300 font-bold uppercase tracking-widest block">Código PNR Regreso</span>
+                <span class="font-mono text-xl sm:text-2xl font-black tracking-widest text-emerald-400">
+                  {{ confirmedReturnBooking()?.bookingReference }}
+                </span>
+              </div>
             </div>
 
+            <!-- Ticket Body -->
+            <div class="p-6 sm:p-8 space-y-6">
+              
+              <!-- Flight Route Grid -->
+              <div class="flex items-center justify-between pb-6 border-b border-slate-100">
+                <div>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Origen (Regreso)</span>
+                  <h3 class="text-2xl font-black text-slate-900">{{ confirmedReturnBooking()?.origin }}</h3>
+                  <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <span class="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">📅 {{ confirmedReturnBooking()?.departureTime | date:'EEE, d MMM yyyy' }}</span>
+                    <span class="text-xs font-semibold text-slate-500">🕒 {{ confirmedReturnBooking()?.departureTime | date:'shortTime' }}</span>
+                  </div>
+                </div>
+                
+                <div class="flex flex-col items-center">
+                  <span class="text-xs font-bold text-slate-800">Directo</span>
+                  <span class="text-xl text-slate-300">✈</span>
+                  <span class="text-[10px] text-slate-400 font-mono">{{ confirmedReturnBooking()?.flightNumber }}</span>
+                </div>
+
+                <div class="text-right">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Destino (Regreso)</span>
+                  <h3 class="text-2xl font-black text-slate-900">{{ confirmedReturnBooking()?.destination }}</h3>
+                  <p class="text-xs font-semibold text-slate-500">Llegada estimada</p>
+                </div>
+              </div>
+
+              <!-- Passenger & Seat Details Grid -->
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 pb-6 border-b border-slate-100">
+                <div>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Fecha</span>
+                  <p class="text-xs font-bold text-slate-800 mt-0.5">{{ confirmedReturnBooking()?.departureTime | date:'dd MMM yyyy' }}</p>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pasajero</span>
+                  <p class="text-xs font-bold text-slate-800 mt-0.5 truncate">{{ confirmedReturnBooking()?.passengerName }}</p>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Asiento(s)</span>
+                  <p class="text-base font-black text-slate-900 mt-0.5">{{ confirmedReturnBooking()?.seatNumber }}</p>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Puerta</span>
+                  <p class="text-xs font-bold text-slate-800 mt-0.5">C-08</p>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Abordaje</span>
+                  <p class="text-xs font-bold text-slate-800 mt-0.5">45 min antes</p>
+                </div>
+              </div>
+
+              <!-- Barcode / Total Grid -->
+              <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-1 h-10 bg-slate-100 px-3 rounded-xl border border-slate-200">
+                    <span class="w-1 h-6 bg-slate-800"></span>
+                    <span class="w-2 h-6 bg-slate-800"></span>
+                    <span class="w-0.5 h-6 bg-slate-800"></span>
+                    <span class="w-1.5 h-6 bg-slate-800"></span>
+                    <span class="w-1 h-6 bg-slate-800"></span>
+                    <span class="w-2 h-6 bg-slate-800"></span>
+                  </div>
+                  <span class="font-mono text-xs text-slate-500 font-bold">{{ confirmedReturnBooking()?.bookingReference }}</span>
+                </div>
+
+                <div class="text-right">
+                  <span class="text-[10px] text-slate-400 block font-medium">Pagado Regreso:</span>
+                  <span class="text-base font-black text-slate-900">
+                    $ {{ confirmedReturnBooking()?.totalPaid | number }} COP
+                  </span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Action buttons below tickets -->
+          <div class="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex items-center justify-between">
+            <button
+              onclick="window.print()"
+              class="px-5 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200 text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>🖨️ Imprimir Pasabordos</span>
+            </button>
+
+            <a
+              routerLink="/flights"
+              (click)="finishBookingFlow()"
+              class="px-6 py-2.5 rounded-xl bg-davivienda hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-200 transition-colors cursor-pointer"
+            >
+              Volver a Buscar Vuelos
+            </a>
           </div>
 
         </div>
@@ -150,41 +257,51 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
           
           <!-- Back Link & Header -->
           <div class="flex items-center justify-between mb-6">
-            <a [routerLink]="['/flight', flightId(), 'seats']" class="text-xs font-bold text-slate-600 hover:text-davivienda flex items-center gap-1.5">
+            <a
+              [routerLink]="['/flight', flightId(), 'seats']"
+              [queryParams]="isRoundTrip() ? { roundTrip: 'true', returnFlightId: returnFlight()?.id, passengers: passengers() } : { passengers: passengers() }"
+              class="text-xs font-bold text-slate-600 hover:text-davivienda flex items-center gap-1.5 cursor-pointer"
+            >
               &larr; Volver al Mapa de Cabina
             </a>
 
             <!-- Countdown Pill -->
-            <div *ngIf="myLockedSeats().length > 0" class="flex items-center gap-2 bg-red-50 text-davivienda border border-red-200 px-3.5 py-1.5 rounded-full text-xs font-bold">
+            <div *ngIf="hasLockedSeats()" class="flex items-center gap-2 bg-red-50 text-davivienda border border-red-200 px-3.5 py-1.5 rounded-full text-xs font-bold">
               <span>Tiempo para completar tu compra:</span>
               <span class="font-mono text-sm tracking-wider">{{ formattedRemainingTime() }}</span>
             </div>
           </div>
 
           <!-- If no seat is locked, display warning and redirect -->
-          <div *ngIf="myLockedSeats().length === 0" class="bg-amber-50 border border-amber-200 p-6 rounded-2xl text-center">
+          <div *ngIf="!hasLockedSeats()" class="bg-amber-50 border border-amber-200 p-8 rounded-2xl text-center">
             <h2 class="text-lg font-bold text-amber-900">No tienes asientos bloqueados actualmente</h2>
-            <p class="text-xs text-amber-700 mt-1 mb-4">Selecciona primero los asientos en el mapa de cabina para proceder al pago.</p>
-            <a [routerLink]="['/flight', flightId(), 'seats']" class="inline-block px-5 py-2.5 bg-davivienda text-white font-bold text-xs rounded-xl shadow-md">
+            <p class="text-xs text-amber-700 mt-1 mb-4">
+              {{ isRoundTrip() ? 'Selecciona los asientos para el vuelo de ida y de regreso en el mapa de cabina para proceder al pago.' : 'Selecciona primero los asientos en el mapa de cabina para proceder al pago.' }}
+            </p>
+            <a
+              [routerLink]="['/flight', flightId(), 'seats']"
+              [queryParams]="isRoundTrip() ? { roundTrip: 'true', returnFlightId: returnFlight()?.id, passengers: passengers() } : { passengers: passengers() }"
+              class="inline-block px-5 py-2.5 bg-davivienda text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
+            >
               Ir a Seleccionar Asientos
             </a>
           </div>
 
           <!-- Checkout Layout: 2 Columns (Form on left, Order summary on right) -->
-          <div *ngIf="myLockedSeats().length > 0" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div *ngIf="hasLockedSeats()" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
             <!-- Left 2 Cols: Passenger and Payment Form -->
             <div class="lg:col-span-2 space-y-6">
               
               <!-- 1. Passenger Information Card -->
               <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
                   <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
                     <span class="w-6 h-6 rounded-full bg-red-100 text-davivienda flex items-center justify-center text-xs font-black">1</span>
-                    Información del Contacto y Pasajero Principal
+                    Información del Pasajero Principal y Contacto
                   </h2>
-                  <span class="text-xs font-bold text-davivienda bg-red-50 px-2.5 py-1 rounded-full border border-red-100">
-                    Asiento(s): {{ selectedSeatsDisplay() }}
+                  <span class="text-xs font-bold text-davivienda bg-red-50 px-2.5 py-1 rounded-full border border-red-100 self-start sm:self-auto">
+                    {{ isRoundTrip() ? 'Ida: ' + outboundSeatsDisplay() + ' | Regreso: ' + returnSeatsDisplay() : 'Asiento(s): ' + outboundSeatsDisplay() }}
                   </span>
                 </div>
 
@@ -211,7 +328,7 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                     <label class="block text-xs font-bold text-slate-600 mb-1">Tipo de Documento</label>
                     <select
                       [(ngModel)]="passenger.documentType"
-                      class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-davivienda/20 focus:border-davivienda"
+                      class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-davivienda/20 focus:border-davivienda cursor-pointer"
                     >
                       <option value="CC">Cédula de Ciudadanía (CC)</option>
                       <option value="CE">Cédula de Extranjería (CE)</option>
@@ -325,32 +442,62 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                   Resumen de tu Compra
                 </h3>
 
-                <!-- Flight details -->
-                <div class="space-y-3 pb-4 border-b border-slate-100 text-xs">
-                  <div class="flex justify-between">
-                    <span class="text-slate-500">Vuelo:</span>
-                    <span class="font-bold text-slate-800">{{ flight()?.flightNumber }}</span>
+                <!-- Outbound Flight Details -->
+                <div class="space-y-2 pb-4 border-b border-slate-100 text-xs">
+                  <div class="flex items-center justify-between">
+                    <span class="font-extrabold text-slate-900">
+                      {{ isRoundTrip() ? '1. Vuelo de Ida:' : 'Vuelo:' }}
+                    </span>
+                    <span class="font-bold text-davivienda">{{ outboundFlight()?.flightNumber }}</span>
                   </div>
-                  <div class="flex justify-between">
-                    <span class="text-slate-500">Ruta:</span>
-                    <span class="font-bold text-slate-800">{{ flight()?.originCode }} &rarr; {{ flight()?.destinationCode }}</span>
+                  <div class="flex justify-between text-slate-500">
+                    <span>Ruta:</span>
+                    <span class="font-semibold text-slate-800">{{ outboundFlight()?.originCode }} &rarr; {{ outboundFlight()?.destinationCode }}</span>
                   </div>
-                  <div class="flex justify-between">
-                    <span class="text-slate-500">Pasajeros:</span>
-                    <span class="font-bold text-slate-800">{{ myLockedSeats().length }} pasajero(s)</span>
+                  <div class="flex justify-between text-slate-500">
+                    <span>Fecha y Hora:</span>
+                    <span class="font-bold text-slate-800">📅 {{ outboundFlight()?.departureTime | date:'EEE, d MMM yyyy' }} &bull; 🕒 {{ outboundFlight()?.departureTime | date:'shortTime' }}</span>
                   </div>
-                  <div class="flex justify-between">
-                    <span class="text-slate-500">Asientos:</span>
-                    <span class="font-bold text-davivienda">{{ selectedSeatsDisplay() }}</span>
+                  <div class="flex justify-between text-slate-500">
+                    <span>Asientos Ida:</span>
+                    <span class="font-bold text-davivienda">{{ outboundSeatsDisplay() }}</span>
                   </div>
-                  <div class="flex justify-between">
-                    <span class="text-slate-500">Estado del Lock:</span>
-                    <span class="font-semibold text-emerald-600">Activo (Redis)</span>
+                  <div class="flex justify-between text-slate-500">
+                    <span>Subtotal Ida:</span>
+                    <span class="font-semibold text-slate-800">$ {{ outboundTotalPrice() | number }} COP</span>
+                  </div>
+                </div>
+
+                <!-- Return Flight Details (if round trip) -->
+                <div *ngIf="isRoundTrip() && returnFlight()" class="space-y-2 py-4 border-b border-slate-100 text-xs">
+                  <div class="flex items-center justify-between">
+                    <span class="font-extrabold text-slate-900">2. Vuelo de Regreso:</span>
+                    <span class="font-bold text-slate-800">{{ returnFlight()?.flightNumber }}</span>
+                  </div>
+                  <div class="flex justify-between text-slate-500">
+                    <span>Ruta:</span>
+                    <span class="font-semibold text-slate-800">{{ returnFlight()?.originCode }} &rarr; {{ returnFlight()?.destinationCode }}</span>
+                  </div>
+                  <div class="flex justify-between text-slate-500">
+                    <span>Fecha y Hora:</span>
+                    <span class="font-bold text-slate-800">📅 {{ returnFlight()?.departureTime | date:'EEE, d MMM yyyy' }} &bull; 🕒 {{ returnFlight()?.departureTime | date:'shortTime' }}</span>
+                  </div>
+                  <div class="flex justify-between text-slate-500">
+                    <span>Asientos Regreso:</span>
+                    <span class="font-bold text-slate-800">{{ returnSeatsDisplay() }}</span>
+                  </div>
+                  <div class="flex justify-between text-slate-500">
+                    <span>Subtotal Regreso:</span>
+                    <span class="font-semibold text-slate-800">$ {{ returnTotalPrice() | number }} COP</span>
                   </div>
                 </div>
 
                 <!-- Price Breakdown -->
                 <div class="space-y-2 py-4 border-b border-slate-100 text-xs">
+                  <div class="flex justify-between text-slate-500">
+                    <span>Pasajeros:</span>
+                    <span class="font-bold text-slate-800">{{ passengers() }} pasajero(s)</span>
+                  </div>
                   <div class="flex justify-between text-slate-500">
                     <span>Tarifa Base</span>
                     <span>$ {{ (totalPrice() * 0.81) | number:'1.0-0' }} COP</span>
@@ -369,14 +516,16 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                 <button
                   (click)="submitBooking()"
                   [disabled]="isSubmitting() || !isFormValid()"
-                  class="mt-6 w-full py-3.5 rounded-xl bg-davivienda hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2"
+                  class="mt-6 w-full py-3.5 rounded-xl bg-davivienda hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span *ngIf="isSubmitting()" class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-r-transparent"></span>
-                  <span>{{ isSubmitting() ? 'Procesando Transacción ACID...' : 'Pagar y Confirmar Reserva (' + myLockedSeats().length + ')' }}</span>
+                  <span>
+                    {{ isSubmitting() ? 'Procesando Transacción ACID...' : (isRoundTrip() ? 'Pagar y Confirmar Ida y Vuelta' : 'Pagar y Confirmar Reserva (' + outboundSeats().length + ')') }}
+                  </span>
                 </button>
 
                 <p class="text-[10px] text-center text-slate-400 mt-3">
-                  Transacción protegida con estándar bancario Davivienda. El código PNR será generado al instante.
+                  Transacción protegida con estándar bancario Davivienda. {{ isRoundTrip() ? 'Se generarán PNRs independientes para cada trayecto.' : 'El código PNR será generado al instante.' }}
                 </p>
 
               </div>
@@ -393,8 +542,12 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
 })
 export class CheckoutComponent implements OnInit {
   public readonly flightId = input.required<string>();
+  public readonly roundTripParam = input<string | undefined>(undefined, { alias: 'roundTrip' });
+  public readonly returnFlightIdParam = input<string | undefined>(undefined, { alias: 'returnFlightId' });
+  public readonly passengersParam = input<string | number | undefined>(undefined, { alias: 'passengers' });
 
   private readonly state = inject(FlightStateService);
+  private readonly flightApi = inject(FlightApiService);
   private readonly userSession = inject(UserSessionService);
   private readonly router = inject(Router);
 
@@ -403,15 +556,60 @@ export class CheckoutComponent implements OnInit {
   public readonly passengers = this.state.passengers;
   public readonly lockSeconds = this.state.lockSecondsRemaining;
   public readonly confirmedBooking = this.state.lastBooking;
+  public readonly confirmedReturnBooking = this.state.lastReturnBooking;
 
-  public readonly totalPrice = computed(() =>
-    this.myLockedSeats().reduce((sum, s) => sum + s.price, 0),
+  public readonly isRoundTrip = computed(
+    () => this.roundTripParam() === 'true' || (this.state.tripType() === 'ROUND_TRIP' && !!this.returnFlight()),
   );
 
-  public readonly selectedSeatsDisplay = computed(() =>
-    this.myLockedSeats()
+  public readonly outboundFlight = computed(
+    () => this.state.selectedOutboundFlight() || this.flight(),
+  );
+
+  public readonly returnFlight = computed(
+    () => this.state.selectedReturnFlight(),
+  );
+
+  public readonly outboundSeats = computed(() => {
+    if (this.isRoundTrip() && this.state.myLockedOutboundSeats().length > 0) {
+      return this.state.myLockedOutboundSeats();
+    }
+    return this.myLockedSeats();
+  });
+
+  public readonly returnSeats = computed(() => this.state.myLockedReturnSeats());
+
+  public readonly hasLockedSeats = computed(() => {
+    if (this.isRoundTrip()) {
+      return this.outboundSeats().length > 0 && this.returnSeats().length > 0;
+    }
+    return this.myLockedSeats().length > 0;
+  });
+
+  public readonly outboundSeatsDisplay = computed(() =>
+    this.outboundSeats()
       .map((s) => s.seatNumber)
       .join(', '),
+  );
+
+  public readonly returnSeatsDisplay = computed(() =>
+    this.returnSeats()
+      .map((s) => s.seatNumber)
+      .join(', '),
+  );
+
+  public readonly selectedSeatsDisplay = computed(() => this.outboundSeatsDisplay());
+
+  public readonly outboundTotalPrice = computed(() =>
+    this.outboundSeats().reduce((sum, s) => sum + s.price, 0),
+  );
+
+  public readonly returnTotalPrice = computed(() =>
+    this.isRoundTrip() ? this.returnSeats().reduce((sum, s) => sum + s.price, 0) : 0,
+  );
+
+  public readonly totalPrice = computed(() =>
+    this.outboundTotalPrice() + this.returnTotalPrice(),
   );
 
   public selectedPaymentMethod: 'DAVIPLATA' | 'CARD' | 'PSE' = 'DAVIPLATA';
@@ -434,8 +632,29 @@ export class CheckoutComponent implements OnInit {
   });
 
   ngOnInit() {
+    const p = this.passengersParam();
+    if (p !== undefined && p !== null) {
+      const parsed = typeof p === 'string' ? parseInt(p, 10) : p;
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 9) {
+        this.state.setPassengers(parsed);
+      }
+    }
+
+    const retId = this.returnFlightIdParam();
+    if (retId && !this.state.selectedReturnFlight()) {
+      this.flightApi.getFlightById(retId).subscribe({
+        next: (fl) => this.state.selectedReturnFlight.set(fl),
+      });
+    }
+
+    const outId = this.flightId();
+    if (outId && !this.state.selectedOutboundFlight()) {
+      this.flightApi.getFlightById(outId).subscribe({
+        next: (fl) => this.state.selectedOutboundFlight.set(fl),
+      });
+    }
+
     const currentUser = this.userSession.currentUser();
-    // Autocompletar con los datos del perfil activo
     const names = currentUser.name.split(' ');
     this.passenger = {
       firstName: names[0] || 'Carlos',
@@ -454,6 +673,15 @@ export class CheckoutComponent implements OnInit {
       this.passenger.documentNumber &&
       this.passenger.email,
     );
+  }
+
+  public finishBookingFlow() {
+    this.state.lastBooking.set(null);
+    this.state.lastReturnBooking.set(null);
+    this.state.selectedOutboundFlight.set(null);
+    this.state.selectedReturnFlight.set(null);
+    this.state.myLockedOutboundSeats.set([]);
+    this.state.myLockedReturnSeats.set([]);
   }
 
   public async submitBooking() {

@@ -1,7 +1,8 @@
-import { Component, OnInit, OnDestroy, inject, input, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, input, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FlightStateService } from '../../core/state/flight-state.service';
+import { FlightApiService } from '../../core/services/flight-api.service';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { Seat, SeatClass, SeatStatus } from '@davivienda/shared';
 
@@ -27,6 +28,9 @@ import { Seat, SeatClass, SeatStatus } from '@davivienda/shared';
             </a>
             <div>
               <div class="flex items-center gap-2">
+                <span *ngIf="isRoundTrip()" class="text-xs bg-slate-900 text-white font-extrabold px-2 py-0.5 rounded-md uppercase">
+                  {{ currentStep() === 'outbound' ? '1. Vuelo de Ida' : '2. Vuelo de Regreso' }}
+                </span>
                 <h1 class="text-lg sm:text-xl font-extrabold text-slate-900">
                   {{ flight()?.flightNumber ?? ('Vuelo ' + flightId()) }}
                 </h1>
@@ -34,8 +38,16 @@ import { Seat, SeatClass, SeatStatus } from '@davivienda/shared';
                   {{ flight()?.aircraftModel ?? 'Airbus A320neo' }}
                 </span>
               </div>
-              <p class="text-xs text-slate-500 font-medium">
-                {{ formatCityRoute(flight()?.originCity, flight()?.originCode) }} &rarr; {{ formatCityRoute(flight()?.destinationCity, flight()?.destinationCode) }} &bull; {{ flight()?.departureTime | date:'shortTime' }}
+              <p class="text-xs text-slate-500 font-medium flex items-center flex-wrap gap-x-2 gap-y-1 mt-0.5">
+                <span class="font-bold text-slate-800">{{ formatCityRoute(flight()?.originCity, flight()?.originCode) }} &rarr; {{ formatCityRoute(flight()?.destinationCity, flight()?.destinationCode) }}</span>
+                <span class="text-slate-300">&bull;</span>
+                <span class="inline-flex items-center gap-1 font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[11px] border border-slate-200">
+                  📅 {{ flight()?.departureTime | date:'EEEE, d MMM yyyy' }}
+                </span>
+                <span class="text-slate-300">&bull;</span>
+                <span class="text-slate-700 font-bold inline-flex items-center gap-1">
+                  🕒 {{ flight()?.departureTime | date:'shortTime' }}
+                </span>
               </p>
             </div>
           </div>
@@ -84,6 +96,51 @@ import { Seat, SeatClass, SeatStatus } from '@davivienda/shared';
             </div>
           </div>
 
+        </div>
+      </section>
+
+      <!-- Round Trip Step Navigator Bar (when in round-trip mode) -->
+      <section *ngIf="isRoundTrip()" class="bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 py-2 sticky top-[73px] z-30 shadow-xs">
+        <div class="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              (click)="switchToOutbound()"
+              class="px-3.5 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+              [ngClass]="currentStep() === 'outbound' ? 'bg-davivienda text-white' : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'"
+            >
+              <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px]" [ngClass]="currentStep() === 'outbound' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'">1</span>
+              <span>1. Asientos Ida ({{ outboundFlight()?.flightNumber || flightId() }} &bull; {{ outboundFlight()?.departureTime | date:'d MMM' }})</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded-full font-bold" [ngClass]="currentStep() === 'outbound' ? 'bg-white/20 text-white' : (outboundSeatsCount() === passengers() ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700')">
+                {{ outboundSeatsCount() }}/{{ passengers() }}
+              </span>
+            </button>
+
+            <span class="text-slate-400 font-bold">➔</span>
+
+            <button
+              type="button"
+              (click)="switchToReturn()"
+              [disabled]="outboundSeatsCount() < passengers()"
+              class="px-3.5 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
+              [ngClass]="currentStep() === 'return' ? 'bg-davivienda text-white' : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'"
+            >
+              <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px]" [ngClass]="currentStep() === 'return' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'">2</span>
+              <span>2. Asientos Regreso ({{ returnFlight()?.flightNumber || returnFlightId() }} &bull; {{ returnFlight()?.departureTime | date:'d MMM' }})</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded-full font-bold" [ngClass]="currentStep() === 'return' ? 'bg-white/20 text-white' : (returnSeatsCount() === passengers() ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700')">
+                {{ returnSeatsCount() }}/{{ passengers() }}
+              </span>
+            </button>
+          </div>
+
+          <div class="text-xs font-semibold">
+            <span *ngIf="currentStep() === 'outbound'" class="text-davivienda font-bold">
+              👉 Paso 1: Selecciona {{ passengers() }} asiento(s) para la ida ({{ flight()?.originCode }} ➔ {{ flight()?.destinationCode }} &bull; {{ flight()?.departureTime | date:'EEE, d MMM' }})
+            </span>
+            <span *ngIf="currentStep() === 'return'" class="text-davivienda font-bold">
+              👉 Paso 2: Selecciona {{ passengers() }} asiento(s) para el regreso ({{ flight()?.originCode }} ➔ {{ flight()?.destinationCode }} &bull; {{ flight()?.departureTime | date:'EEE, d MMM' }})
+            </span>
+          </div>
         </div>
       </section>
 
@@ -262,15 +319,43 @@ import { Seat, SeatClass, SeatStatus } from '@davivienda/shared';
           <div class="flex items-center gap-2.5 w-full md:w-auto justify-end">
             <button
               (click)="releaseAllSeats()"
-              class="px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold transition-colors"
+              class="px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold transition-colors cursor-pointer"
             >
               Liberar Todo
             </button>
+
+            <!-- Case 1: Round-Trip & Step 1 (Outbound) -->
             <button
+              *ngIf="isRoundTrip() && currentStep() === 'outbound'"
+              (click)="switchToReturn()"
+              [disabled]="myLockedSeats().length < passengers()"
+              class="px-5 py-2.5 rounded-xl bg-davivienda hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-red-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>{{ myLockedSeats().length < passengers() ? 'Faltan ' + (passengers() - myLockedSeats().length) + ' Asiento(s) de Ida' : 'Continuar a Asientos de Regreso' }}</span>
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+
+            <!-- Case 2: Round-Trip & Step 2 (Return) -->
+            <button
+              *ngIf="isRoundTrip() && currentStep() === 'return'"
               (click)="proceedToCheckout()"
               [disabled]="myLockedSeats().length < passengers()"
-              [title]="myLockedSeats().length < passengers() ? 'Debes seleccionar ' + (passengers() - myLockedSeats().length) + ' asiento(s) más' : 'Continuar al pago'"
-              class="px-5 py-2.5 rounded-xl bg-davivienda hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-red-200 transition-all flex items-center justify-center gap-2"
+              class="px-5 py-2.5 rounded-xl bg-davivienda hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-red-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>{{ myLockedSeats().length < passengers() ? 'Faltan ' + (passengers() - myLockedSeats().length) + ' Asiento(s) de Regreso' : 'Continuar al Pago (Ida y Regreso)' }}</span>
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+
+            <!-- Case 3: One-Way -->
+            <button
+              *ngIf="!isRoundTrip()"
+              (click)="proceedToCheckout()"
+              [disabled]="myLockedSeats().length < passengers()"
+              class="px-5 py-2.5 rounded-xl bg-davivienda hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-red-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>{{ myLockedSeats().length < passengers() ? 'Faltan ' + (passengers() - myLockedSeats().length) + ' Asiento(s)' : 'Continuar al Pago' }}</span>
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -288,11 +373,35 @@ import { Seat, SeatClass, SeatStatus } from '@davivienda/shared';
 export class SeatMapComponent implements OnInit, OnDestroy {
   public readonly flightId = input.required<string>();
   public readonly passengersParam = input<string | number | undefined>(undefined, { alias: 'passengers' });
+  public readonly roundTripParam = input<string | undefined>(undefined, { alias: 'roundTrip' });
+  public readonly returnFlightIdParam = input<string | undefined>(undefined, { alias: 'returnFlightId' });
 
   public readonly state = inject(FlightStateService);
+  private readonly flightApi = inject(FlightApiService);
   private readonly userSession = inject(UserSessionService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+
+  public readonly isRoundTrip = computed(
+    () => this.roundTripParam() === 'true' || this.state.tripType() === 'ROUND_TRIP',
+  );
+  public readonly returnFlightId = computed(
+    () => this.returnFlightIdParam() || this.state.selectedReturnFlight()?.id || '',
+  );
+  public readonly currentStep = signal<'outbound' | 'return'>('outbound');
+  public readonly outboundFlight = computed(() => this.state.selectedOutboundFlight());
+  public readonly returnFlight = computed(() => this.state.selectedReturnFlight());
+
+  public readonly outboundSeatsCount = computed(() =>
+    this.currentStep() === 'outbound'
+      ? this.myLockedSeats().length
+      : this.state.myLockedOutboundSeats().length,
+  );
+  public readonly returnSeatsCount = computed(() =>
+    this.currentStep() === 'return'
+      ? this.myLockedSeats().length
+      : this.state.myLockedReturnSeats().length,
+  );
 
   public readonly flight = this.state.selectedFlight;
   public readonly seats = this.state.seats;
@@ -320,11 +429,6 @@ export class SeatMapComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit() {
-    const id = this.flightId();
-    if (id) {
-      this.state.selectFlight(id);
-    }
-
     const p = this.passengersParam();
     if (p !== undefined && p !== null) {
       const parsed = typeof p === 'string' ? parseInt(p, 10) : p;
@@ -332,10 +436,89 @@ export class SeatMapComponent implements OnInit, OnDestroy {
         this.state.setPassengers(parsed);
       }
     }
+
+    if (this.isRoundTrip()) {
+      this.state.tripType.set('ROUND_TRIP');
+      const retId = this.returnFlightId();
+      if (retId && !this.state.selectedReturnFlight()) {
+        this.flightApi.getFlightById(retId).subscribe({
+          next: (fl) => this.state.selectedReturnFlight.set(fl),
+        });
+      }
+      const outId = this.flightId();
+      if (outId && !this.state.selectedOutboundFlight()) {
+        this.flightApi.getFlightById(outId).subscribe({
+          next: (fl) => this.state.selectedOutboundFlight.set(fl),
+        });
+      }
+    }
+
+    const id = this.flightId();
+    if (id) {
+      this.state.selectFlight(id);
+    }
   }
 
   ngOnDestroy() {
     // Al salir de la vista, no liberamos automáticamente el lock si el usuario va a checkout
+  }
+
+  public switchToReturn() {
+    if (this.myLockedSeats().length < this.passengers()) {
+      this.state.addNotification(
+        `Debes seleccionar ${this.passengers()} asiento(s) de ida antes de continuar.`,
+        'warning',
+      );
+      return;
+    }
+
+    // 1. Guardar los asientos de ida
+    this.state.myLockedOutboundSeats.set([...this.myLockedSeats()]);
+
+    const retId = this.returnFlightId();
+    if (!retId) {
+      this.state.addNotification('No se ha especificado un vuelo de regreso.', 'error');
+      return;
+    }
+
+    // Validar coherencia temporal entre vuelo de ida y de regreso
+    const outboundFlight = this.state.selectedOutboundFlight() || this.flight();
+    const returnFlight = this.state.selectedReturnFlight();
+    if (outboundFlight && returnFlight) {
+      const outTime = new Date(outboundFlight.arrivalTime || outboundFlight.departureTime).getTime();
+      const retTime = new Date(returnFlight.departureTime).getTime();
+      if (retTime <= outTime) {
+        this.state.addNotification(
+          'El vuelo de regreso seleccionado no puede despegar antes de la llegada del vuelo de ida.',
+          'error',
+        );
+        this.router.navigate(['/flights']);
+        return;
+      }
+    }
+
+    // 2. Cambiar al paso de regreso
+    this.currentStep.set('return');
+    this.state.currentSeatStep.set('return');
+
+    // 3. Conectarse al vuelo de regreso
+    this.state.selectFlight(retId);
+    this.state.addNotification(
+      '✓ Asientos de ida guardados. Ahora selecciona los asientos para tu vuelo de regreso.',
+      'info',
+    );
+  }
+
+  public switchToOutbound() {
+    // Guardar asientos de regreso si tiene alguno
+    if (this.currentStep() === 'return' && this.myLockedSeats().length > 0) {
+      this.state.myLockedReturnSeats.set([...this.myLockedSeats()]);
+    }
+
+    const outId = this.flightId();
+    this.currentStep.set('outbound');
+    this.state.currentSeatStep.set('outbound');
+    this.state.selectFlight(outId);
   }
 
   public increasePassengers() {
@@ -459,6 +642,33 @@ export class SeatMapComponent implements OnInit, OnDestroy {
 
   public proceedToCheckout() {
     const flightId = this.flightId();
-    this.router.navigate(['/flight', flightId, 'checkout']);
+    if (this.isRoundTrip()) {
+      const outboundFlight = this.state.selectedOutboundFlight() || this.flight();
+      const returnFlight = this.state.selectedReturnFlight();
+      if (outboundFlight && returnFlight) {
+        const outTime = new Date(outboundFlight.arrivalTime || outboundFlight.departureTime).getTime();
+        const retTime = new Date(returnFlight.departureTime).getTime();
+        if (retTime <= outTime) {
+          this.state.addNotification(
+            'El vuelo de regreso no puede despegar antes de la llegada del vuelo de ida.',
+            'error',
+          );
+          this.router.navigate(['/flights']);
+          return;
+        }
+      }
+      this.state.myLockedReturnSeats.set([...this.myLockedSeats()]);
+      this.router.navigate(['/flight', flightId, 'checkout'], {
+        queryParams: {
+          roundTrip: 'true',
+          returnFlightId: this.returnFlightId(),
+          passengers: this.passengers(),
+        },
+      });
+    } else {
+      this.router.navigate(['/flight', flightId, 'checkout'], {
+        queryParams: { passengers: this.passengers() },
+      });
+    }
   }
 }

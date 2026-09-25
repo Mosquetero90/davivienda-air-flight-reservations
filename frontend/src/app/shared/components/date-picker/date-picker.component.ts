@@ -111,7 +111,8 @@ export interface CalendarDay {
           <button
             type="button"
             (click)="selectPreset('today')"
-            class="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border"
+            [disabled]="isPresetDisabled('today')"
+            class="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border disabled:opacity-30 disabled:cursor-not-allowed"
             [ngClass]="value === todayIso ? 'bg-red-50 border-davivienda text-davivienda' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'"
           >
             ⚡ Hoy
@@ -119,7 +120,8 @@ export interface CalendarDay {
           <button
             type="button"
             (click)="selectPreset('tomorrow')"
-            class="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border"
+            [disabled]="isPresetDisabled('tomorrow')"
+            class="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border disabled:opacity-30 disabled:cursor-not-allowed"
             [ngClass]="value === tomorrowIso ? 'bg-red-50 border-davivienda text-davivienda' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'"
           >
             ✈️ Mañana
@@ -127,7 +129,8 @@ export interface CalendarDay {
           <button
             type="button"
             (click)="selectPreset('weekend')"
-            class="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border"
+            [disabled]="isPresetDisabled('weekend')"
+            class="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border disabled:opacity-30 disabled:cursor-not-allowed"
             [ngClass]="value === weekendIso ? 'bg-red-50 border-davivienda text-davivienda' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'"
           >
             🌴 Fin de semana
@@ -302,11 +305,21 @@ export class DatePickerComponent implements ControlValueAccessor {
     return this.formatIso(d);
   }
 
+  public isPresetDisabled(preset: 'today' | 'tomorrow' | 'weekend'): boolean {
+    const todayStr = this.todayIso;
+    const effectiveMinStr = this.minDate && this.minDate > todayStr ? this.minDate : todayStr;
+    let target = this.todayIso;
+    if (preset === 'tomorrow') target = this.tomorrowIso;
+    if (preset === 'weekend') target = this.weekendIso;
+    return target < effectiveMinStr;
+  }
+
   get isPrevMonthDisabled(): boolean {
     const today = new Date();
+    const effectiveMin = this.minDate && this.minDate > this.todayIso ? this.parseDate(this.minDate) || today : today;
     return (
-      this.viewYear < today.getFullYear() ||
-      (this.viewYear === today.getFullYear() && this.viewMonth <= today.getMonth())
+      this.viewYear < effectiveMin.getFullYear() ||
+      (this.viewYear === effectiveMin.getFullYear() && this.viewMonth <= effectiveMin.getMonth())
     );
   }
 
@@ -406,12 +419,17 @@ export class DatePickerComponent implements ControlValueAccessor {
   }
 
   selectDate(dateStr: string): void {
+    const todayStr = this.todayIso;
+    const effectiveMinStr = this.minDate && this.minDate > todayStr ? this.minDate : todayStr;
+    if (dateStr < effectiveMinStr) return;
+
     this.value = dateStr;
     this.onChange(this.value);
     this.close();
   }
 
   selectPreset(preset: 'today' | 'tomorrow' | 'weekend'): void {
+    if (this.isPresetDisabled(preset)) return;
     let target = this.todayIso;
     if (preset === 'tomorrow') target = this.tomorrowIso;
     if (preset === 'weekend') target = this.weekendIso;

@@ -52,12 +52,16 @@ export class FlightStateService {
   public readonly selectedFlight = signal<Flight | null>(null);
   public readonly selectedOutboundFlight = signal<Flight | null>(null);
   public readonly selectedReturnFlight = signal<Flight | null>(null);
+  public readonly currentSeatStep = signal<'outbound' | 'return'>('outbound');
   public readonly seats = signal<Seat[]>([]);
   public readonly myLockedSeats = signal<Seat[]>([]);
+  public readonly myLockedOutboundSeats = signal<Seat[]>([]);
+  public readonly myLockedReturnSeats = signal<Seat[]>([]);
   public readonly myLockedSeat = computed(() => this.myLockedSeats()[0] ?? null);
   public readonly lockSecondsRemaining = signal<number>(0);
   public readonly metrics = signal<FlightMetrics | null>(null);
   public readonly lastBooking = signal<BookingResponseDto | null>(null);
+  public readonly lastReturnBooking = signal<BookingResponseDto | null>(null);
   public readonly isLoading = signal<boolean>(false);
   public readonly notifications = signal<AppNotification[]>([]);
 
@@ -314,6 +318,21 @@ export class FlightStateService {
             console.error('Error al cargar vuelos de regreso:', err);
           },
         });
+    } else if (isRound) {
+      // Si no especificaron origen/destino específico, cargar todos los vuelos de regreso para la fecha
+      this.flightApi
+        .getFlights({
+          date: filters?.returnDate,
+          passengers: filters?.passengers ?? this.passengers(),
+        })
+        .subscribe({
+          next: (returnData) => {
+            this.returnFlights.set(returnData);
+          },
+          error: (err) => {
+            console.error('Error al cargar vuelos de regreso:', err);
+          },
+        });
     } else {
       this.returnFlights.set([]);
     }
@@ -396,26 +415,47 @@ export class FlightStateService {
     }
   }
 
-  // Confirmar compra y emitir boleto PNR para todos los pasajeros (HU3)
+  // Confirmar compra y emitir boleto PNR para todos los pasajeros (HU3 con soporte de Ida y Vuelta)
   public async confirmBooking(
     passenger: BookingPassengerDto,
     paymentMethod: 'DAVIPLATA' | 'CARD' | 'PSE',
   ): Promise<BookingResponseDto> {
-    const flight = this.selectedFlight();
-    const seats = this.myLockedSeats();
+    const isRound = this.tripType() === 'ROUND_TRIP' && !!this.selectedReturnFlight();
+    const outboundFlight = this.selectedOutboundFlight() || this.selectedFlight();
+    const returnFlight = this.selectedReturnFlight();
 
-    if (!flight || seats.length === 0) {
-      return Promise.reject(new Error('Debes tener al menos un asiento bloqueado para continuar'));
+    const outboundSeats = isRound && this.myLockedOutboundSeats().length > 0
+      ? this.myLockedOutboundSeats()
+      : this.myLockedSeats();
+    const returnSeats = this.myLockedReturnSeats();
+
+    if (!outboundFlight || outboundSeats.length === 0) {
+      return Promise.reject(new Error('Debes tener al menos un asiento de ida seleccionado para continuar'));
+    }
+
+    if (isRound && (!returnFlight || returnSeats.length === 0)) {
+      return Promise.reject(new Error('Debes tener los asientos del vuelo de regreso seleccionados para continuar'));
+    }
+
+    if (isRound && returnFlight) {
+      const outTime = new Date(outboundFlight.arrivalTime || outboundFlight.departureTime).getTime();
+      const retTime = new Date(returnFlight.departureTime).getTime();
+      if (retTime <= outTime) {
+        return Promise.reject(
+          new Error('El vuelo de regreso no puede despegar antes de la llegada de tu vuelo de ida.'),
+        );
+      }
     }
 
     this.isLoading.set(true);
     try {
-      let lastResponse: BookingResponseDto | null = null;
-      let totalPaidSum = 0;
+      let lastOutboundResponse: BookingResponseDto | null = null;
+      let totalOutboundPaid = 0;
 
-      for (const seat of seats) {
+      // 1. Confirmar asientos del Vuelo de Ida
+      for (const seat of outboundSeats) {
         const dto: CreateBookingDto = {
-          flightId: flight.id,
+          flightId: outboundFlight.id,
           seatId: seat.seatNumber,
           userId: this.userSession.currentUser().id,
           passenger,
@@ -431,26 +471,66 @@ export class FlightStateService {
           });
         });
 
-        lastResponse = res;
-        totalPaidSum += res.totalPaid;
+        lastOutboundResponse = res;
+        totalOutboundPaid += res.totalPaid;
+      }
+
+      // 2. Si es viaje de Ida y Vuelta, confirmar asientos del Vuelo de Regreso
+      let lastReturnResponse: BookingResponseDto | null = null;
+      let totalReturnPaid = 0;
+      if (isRound && returnFlight && returnSeats.length > 0) {
+        for (const seat of returnSeats) {
+          const dto: CreateBookingDto = {
+            flightId: returnFlight.id,
+            seatId: seat.seatNumber,
+            userId: this.userSession.currentUser().id,
+            passenger,
+            payment: {
+              method: paymentMethod as any,
+            },
+          };
+
+          const res = await new Promise<BookingResponseDto>((resolve, reject) => {
+            this.flightApi.createBooking(dto).subscribe({
+              next: (data) => resolve(data),
+              error: (err) => reject(err),
+            });
+          });
+
+          lastReturnResponse = res;
+          totalReturnPaid += res.totalPaid;
+        }
       }
 
       this.isLoading.set(false);
       this.myLockedSeats.set([]);
+      this.myLockedOutboundSeats.set([]);
+      this.myLockedReturnSeats.set([]);
       this.stopLockCountdown();
 
-      if (lastResponse) {
-        const combinedResponse: BookingResponseDto = {
-          ...lastResponse,
-          seatNumber: seats.map((s) => s.seatNumber).join(', '),
-          totalPaid: totalPaidSum,
+      if (lastOutboundResponse) {
+        const combinedOutbound: BookingResponseDto = {
+          ...lastOutboundResponse,
+          seatNumber: outboundSeats.map((s) => s.seatNumber).join(', '),
+          totalPaid: totalOutboundPaid,
         };
-        this.lastBooking.set(combinedResponse);
-        this.addNotification(
-          `¡Compra Exitosa para ${seats.length} pasajero(s)! PNR: ${lastResponse.bookingReference}`,
-          'success',
-        );
-        return combinedResponse;
+        this.lastBooking.set(combinedOutbound);
+
+        if (lastReturnResponse && returnFlight) {
+          const combinedReturn: BookingResponseDto = {
+            ...lastReturnResponse,
+            seatNumber: returnSeats.map((s) => s.seatNumber).join(', '),
+            totalPaid: totalReturnPaid,
+          };
+          this.lastReturnBooking.set(combinedReturn);
+        }
+
+        const msg = isRound
+          ? `¡Compra Exitosa de Ida y Vuelta! PNR Ida: ${lastOutboundResponse.bookingReference} | PNR Regreso: ${lastReturnResponse?.bookingReference || 'N/A'}`
+          : `¡Compra Exitosa para ${outboundSeats.length} pasajero(s)! PNR: ${lastOutboundResponse.bookingReference}`;
+        this.addNotification(msg, 'success');
+
+        return combinedOutbound;
       }
 
       throw new Error('No se pudo procesar la reserva.');
