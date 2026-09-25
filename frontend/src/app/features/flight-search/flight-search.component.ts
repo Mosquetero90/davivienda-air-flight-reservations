@@ -223,13 +223,20 @@ import { PassengerSelectorComponent } from '../../shared/components/passenger-se
                 <button
                   type="button"
                   (click)="applyFilter()"
-                  class="w-full min-h-[58px] bg-slate-900 hover:bg-black text-white font-extrabold px-6 rounded-2xl text-sm sm:text-base shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  [disabled]="isSearchDisabled"
+                  [title]="isSearchDisabled ? searchDisabledMessage : 'Buscar vuelos'"
+                  class="w-full min-h-[58px] font-extrabold px-6 rounded-2xl text-sm sm:text-base transition-all flex items-center justify-center gap-2"
+                  [ngClass]="isSearchDisabled ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none' : 'bg-slate-900 hover:bg-black text-white shadow-md hover:shadow-lg cursor-pointer'"
                 >
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <span>Buscar</span>
                 </button>
+                <div *ngIf="isSearchDisabled" class="mt-1.5 flex items-center justify-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200/80 rounded-lg py-1 px-2 text-center animate-in fade-in">
+                  <span>⚠️</span>
+                  <span>{{ searchDisabledMessage }}</span>
+                </div>
               </div>
 
             </div>
@@ -344,8 +351,25 @@ import { PassengerSelectorComponent } from '../../shared/components/passenger-se
           <div *ngFor="let i of [1, 2, 3]" class="h-36 bg-white rounded-2xl border border-slate-100 animate-pulse"></div>
         </div>
 
-        <!-- Empty State -->
-        <div *ngIf="!isLoading() && currentDisplayFlights.length === 0" class="text-center py-16 bg-white rounded-2xl border border-slate-200 p-8">
+        <!-- Initial Prompt State: Please select dates to search -->
+        <div *ngIf="!isLoading() && !hasSearched && currentDisplayFlights.length === 0" class="text-center py-16 bg-white rounded-3xl border border-slate-200/80 p-8 shadow-xs">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-3xl">
+            📅
+          </div>
+          <h3 class="text-lg font-extrabold text-slate-900">
+            Selecciona la fecha para buscar tu vuelo
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-500 mt-1.5 max-w-md mx-auto">
+            {{ tripType === 'ROUND_TRIP' ? 'Elige las fechas de ida y regreso para consultar los itinerarios disponibles de Davivienda Air.' : 'Elige la fecha de salida para consultar los itinerarios disponibles de Davivienda Air.' }}
+          </p>
+          <div class="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
+            <span>💡</span>
+            <span>Usa los accesos directos <em>"Hoy"</em>, <em>"Mañana"</em> o el calendario interactivo</span>
+          </div>
+        </div>
+
+        <!-- Empty State (after searching) -->
+        <div *ngIf="!isLoading() && hasSearched && currentDisplayFlights.length === 0" class="text-center py-16 bg-white rounded-2xl border border-slate-200 p-8 shadow-xs">
           <p class="text-slate-400 text-4xl mb-3">✈️</p>
           <h3 class="text-base font-bold text-slate-700">
             No encontramos vuelos para los filtros seleccionados
@@ -674,6 +698,35 @@ export class FlightSearchComponent implements OnInit {
   public returnDate = '';
   public passengers = this.state.passengers();
   public activeTab: 'outbound' | 'return' = 'outbound';
+  public hasSearched = false;
+
+  public get isSearchDisabled(): boolean {
+    if (this.tripType === 'ONE_WAY') {
+      return !this.date;
+    }
+    // ROUND_TRIP: se obligan las 2 fechas (ida y regreso)
+    return !this.date || !this.returnDate;
+  }
+
+  public get searchDisabledMessage(): string {
+    if (this.tripType === 'ONE_WAY') {
+      if (!this.date) {
+        return 'Debes seleccionar la fecha de ida';
+      }
+    } else {
+      // ROUND_TRIP
+      if (!this.date && !this.returnDate) {
+        return 'Debes seleccionar las 2 fechas (ida y regreso)';
+      }
+      if (!this.date) {
+        return 'Debes seleccionar la fecha de ida';
+      }
+      if (!this.returnDate) {
+        return 'Debes seleccionar la fecha de regreso';
+      }
+    }
+    return '';
+  }
 
   public get currentDisplayFlights(): Flight[] {
     if (this.tripType === 'ROUND_TRIP' && this.activeTab === 'return') {
@@ -693,7 +746,9 @@ export class FlightSearchComponent implements OnInit {
   ngOnInit() {
     this.passengers = this.state.passengers();
     this.loadCities();
-    this.applyFilter();
+    if (!this.isSearchDisabled) {
+      this.applyFilter();
+    }
   }
 
   public onPassengerChange(count: number) {
@@ -810,6 +865,11 @@ export class FlightSearchComponent implements OnInit {
   }
 
   public applyFilter() {
+    if (this.isSearchDisabled) {
+      this.state.addNotification(this.searchDisabledMessage, 'warning');
+      return;
+    }
+
     if (this.origin && this.destination && this.isSameCity(this.origin, this.destination)) {
       this.state.addNotification(
         'La ciudad de origen y destino no pueden ser iguales. Por favor selecciona destinos diferentes.',
@@ -825,6 +885,8 @@ export class FlightSearchComponent implements OnInit {
         'warning',
       );
     }
+
+    this.hasSearched = true;
 
     // Resetear selecciones previas al ejecutar una nueva búsqueda explícita
     this.state.selectedOutboundFlight.set(null);
@@ -855,7 +917,9 @@ export class FlightSearchComponent implements OnInit {
     this.state.selectedReturnFlight.set(null);
     this.tripType = 'ROUND_TRIP';
     this.activeTab = 'outbound';
-    this.applyFilter();
+    this.hasSearched = false;
+    this.state.flights.set([]);
+    this.state.returnFlights.set([]);
   }
 
   public selectOutbound(flight: Flight) {
