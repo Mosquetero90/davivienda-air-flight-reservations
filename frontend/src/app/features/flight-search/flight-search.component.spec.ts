@@ -219,4 +219,45 @@ describe('FlightSearchComponent (Round-Trip Flight Timing Validation)', () => {
       expect(component.returnDate).toBe('2026-09-28');
     });
   });
+
+  describe('setTripType (Reset on Toggle between Round Trip and One Way)', () => {
+    it('should reset outbound and return flight selections when switching from ROUND_TRIP to ONE_WAY', () => {
+      component.tripType = 'ROUND_TRIP';
+      state.selectedOutboundFlight.set(mockOutboundFlight);
+      state.selectedReturnFlight.set(mockLaterReturnFlight);
+      component.returnDate = '2026-09-28';
+      component.activeTab = 'return';
+
+      component.setTripType('ONE_WAY');
+
+      expect(component.tripType).toBe('ONE_WAY');
+      expect(state.selectedOutboundFlight()).toBeNull();
+      expect(state.selectedReturnFlight()).toBeNull();
+      expect(component.returnDate).toBe('');
+      expect(component.activeTab).toBe('outbound');
+    });
+
+    it('should reset flight selections when switching from ONE_WAY to ROUND_TRIP', () => {
+      component.tripType = 'ONE_WAY';
+      state.selectedOutboundFlight.set(mockOutboundFlight);
+
+      component.setTripType('ROUND_TRIP');
+
+      expect(component.tripType).toBe('ROUND_TRIP');
+      expect(state.selectedOutboundFlight()).toBeNull();
+      expect(state.selectedReturnFlight()).toBeNull();
+      expect(component.activeTab).toBe('outbound');
+    });
+
+    it('should not alter selections if the currently active tripType is clicked again (idempotent)', () => {
+      component.tripType = 'ROUND_TRIP';
+      state.selectedOutboundFlight.set(mockOutboundFlight);
+      state.selectedReturnFlight.set(mockLaterReturnFlight);
+
+      component.setTripType('ROUND_TRIP');
+
+      expect(state.selectedOutboundFlight()?.id).toBe(mockOutboundFlight.id);
+      expect(state.selectedReturnFlight()?.id).toBe(mockLaterReturnFlight.id);
+    });
+  });
 });

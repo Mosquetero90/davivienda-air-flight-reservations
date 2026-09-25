@@ -709,13 +709,24 @@ export class FlightSearchComponent implements OnInit {
   }
 
   public setTripType(type: TripType) {
+    if (this.tripType === type) return;
+
     this.tripType = type;
     this.state.tripType.set(type);
+
+    // Resetear completamente las selecciones previas de vuelos y asientos
+    this.state.selectedOutboundFlight.set(null);
+    this.state.selectedReturnFlight.set(null);
+    this.state.myLockedOutboundSeats.set([]);
+    this.state.myLockedReturnSeats.set([]);
+    this.state.releaseMySeatLock();
+
+    this.activeTab = 'outbound';
+
     if (type === 'ONE_WAY') {
       this.returnDate = '';
-      this.activeTab = 'outbound';
-      this.state.selectedReturnFlight.set(null);
     }
+
     this.applyFilter();
   }
 
