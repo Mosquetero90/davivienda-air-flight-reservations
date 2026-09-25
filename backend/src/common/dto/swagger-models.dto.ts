@@ -1,5 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { FlightStatus, SeatClass, SeatStatus } from '@davivienda/shared';
+import {
+  IsString,
+  IsNotEmpty,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  ValidateNested,
+  Length,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 // ============================================================================
 // DTOs de Vuelos (HU1)
@@ -62,6 +72,7 @@ export class UpdateFlightStatusDto {
     example: 'DELAYED',
     description: 'Nuevo estado operativo del vuelo a propagar vía WebSockets',
   })
+  @IsEnum(FlightStatus)
   status!: FlightStatus;
 }
 
@@ -118,9 +129,13 @@ export class SeatDto {
 
 export class PassengerDto {
   @ApiProperty({ example: 'Carlos', description: 'Nombre(s) del pasajero' })
+  @IsString()
+  @IsNotEmpty()
   firstName!: string;
 
   @ApiProperty({ example: 'Mendoza', description: 'Apellido(s) del pasajero' })
+  @IsString()
+  @IsNotEmpty()
   lastName!: string;
 
   @ApiProperty({
@@ -128,15 +143,21 @@ export class PassengerDto {
     example: 'CC',
     description: 'Tipo de documento de identidad',
   })
+  @IsEnum(['CC', 'CE', 'PASSPORT'])
   documentType!: 'CC' | 'CE' | 'PASSPORT';
 
   @ApiProperty({ example: '1020304050', description: 'Número de documento de identidad' })
+  @IsString()
+  @IsNotEmpty()
   documentNumber!: string;
 
   @ApiProperty({ example: 'carlos.mendoza@davivienda.com', description: 'Correo electrónico para envío del tiquete PNR' })
+  @IsEmail()
   email!: string;
 
   @ApiProperty({ example: '+57 310 123 4567', description: 'Teléfono celular del pasajero' })
+  @IsString()
+  @IsNotEmpty()
   phone!: string;
 }
 
@@ -146,35 +167,54 @@ export class PaymentDto {
     example: 'DAVIPLATA',
     description: 'Método de pago seleccionado (Soporte prioritario DaviPlata)',
   })
+  @IsEnum(['CARD', 'DAVIPLATA', 'PSE'])
   method!: 'CARD' | 'DAVIPLATA' | 'PSE';
 
   @ApiPropertyOptional({ example: '4500123456789012', description: 'Número de tarjeta (requerido si method=CARD)' })
+  @IsOptional()
+  @IsString()
   cardNumber?: string;
 
   @ApiPropertyOptional({ example: 'Carlos Mendoza', description: 'Titular de la tarjeta' })
+  @IsOptional()
+  @IsString()
   cardHolder?: string;
 
   @ApiPropertyOptional({ example: '12/28', description: 'Fecha de expiración MM/YY' })
+  @IsOptional()
+  @IsString()
   expiryDate?: string;
 
   @ApiPropertyOptional({ example: '123', description: 'Código de seguridad CVV' })
+  @IsOptional()
+  @IsString()
   cvv?: string;
 }
 
 export class CreateBookingRequestDto {
   @ApiProperty({ example: 'DV-204', description: 'Identificador del vuelo reservado' })
+  @IsString()
+  @IsNotEmpty()
   flightId!: string;
 
   @ApiProperty({ example: '12B', description: 'Identificador o código del asiento bloqueado previamente' })
+  @IsString()
+  @IsNotEmpty()
   seatId!: string;
 
   @ApiProperty({ example: 'carlos_mendoza', description: 'Identificador del usuario que mantiene el lock en Redis' })
+  @IsString()
+  @IsNotEmpty()
   userId!: string;
 
   @ApiProperty({ type: () => PassengerDto, description: 'Datos personales y de contacto del pasajero' })
+  @ValidateNested()
+  @Type(() => PassengerDto)
   passenger!: PassengerDto;
 
   @ApiProperty({ type: () => PaymentDto, description: 'Datos del medio de pago' })
+  @ValidateNested()
+  @Type(() => PaymentDto)
   payment!: PaymentDto;
 }
 
@@ -326,23 +366,35 @@ export class CreateCityInputDto {
     example: 'bucaramanga',
     description: 'Identificador único de la ciudad (opcional, auto-generado si se omite)',
   })
+  @IsOptional()
+  @IsString()
   id?: string;
 
   @ApiProperty({ example: 'Bucaramanga', description: 'Nombre oficial de la ciudad' })
+  @IsString()
+  @IsNotEmpty()
   name!: string;
 
   @ApiProperty({ example: 'CO', description: 'Código ISO del país' })
+  @IsString()
+  @Length(2, 2)
   countryCode!: string;
 }
 
 export class CreateAirportInputDto {
   @ApiProperty({ example: 'BGA', description: 'Código IATA de 3 letras del aeropuerto' })
+  @IsString()
+  @Length(3, 3)
   iataCode!: string;
 
   @ApiProperty({ example: 'Aeropuerto Internacional Palonegro', description: 'Nombre de la terminal aérea' })
+  @IsString()
+  @IsNotEmpty()
   name!: string;
 
   @ApiProperty({ example: 'bucaramanga', description: 'ID de la ciudad a la que pertenece' })
+  @IsString()
+  @IsNotEmpty()
   cityId!: string;
 }
 

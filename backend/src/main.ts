@@ -1,24 +1,49 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const logger = new Logger('DaviviendaFlightSystem');
   const app = await NestFactory.create(AppModule);
 
-  // Habilitar CORS para permitir conexión del cliente Angular (puerto 4200) y sockets
+  // Permitir detección correcta de IP del cliente tras proxies reversos (Docker, Nginx) para Throttler
+  const expressApp = app.getHttpAdapter().getInstance();
+  if (typeof expressApp?.set === 'function') {
+    expressApp.set('trust proxy', 1);
+  }
+
+  // 1. Cabeceras de Seguridad HTTP con Helmet (X-Frame-Options, X-Content-Type-Options, etc.)
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // Swagger UI requiere inline assets; el reverse-proxy Nginx aplica CSP al frontend
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+
+  // 2. Configuración controlada de CORS con lista blanca
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+    : ['http://localhost:4200', 'http://localhost:3000', 'http://127.0.0.1:4200'];
+
   app.enableCors({
-    origin: '*',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS bloqueado para origen no autorizado: ${origin}`));
+      }
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 
-  // Validación estricta global de DTOs
+  // 3. Validación estricta global de DTOs (mitiga Parameter Tampering y Mass Assignment)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidNonWhitelisted: false,
+      forbidNonWhitelisted: true,
     }),
   );
 

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { SeatModule } from './modules/seat/seat.module';
@@ -10,6 +11,13 @@ import { FlightGateway } from './gateway/flight.gateway';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,
+        limit: 10,
+      },
+    ]),
     DatabaseModule,
     RedisModule,
     SeatModule,

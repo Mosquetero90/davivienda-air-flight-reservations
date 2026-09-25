@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -13,6 +14,7 @@ import {
   ApiParam,
   ApiBody,
 } from '@nestjs/swagger';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { BookingService } from './booking.service';
 import { Booking, BookingResponseDto, CreateBookingDto } from '@davivienda/shared';
 import {
@@ -27,6 +29,8 @@ export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
   @Post()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Crear y confirmar una reserva de vuelo' })
   @ApiBody({ type: CreateBookingRequestDto })
   @ApiResponse({
@@ -39,8 +43,13 @@ export class BookingController {
     type: ErrorResponseDto,
     description: 'Conflicto: Asiento no bloqueado por este usuario o ya reservado',
   })
+  @ApiResponse({
+    status: 429,
+    type: ErrorResponseDto,
+    description: 'Límite de solicitudes excedido: máximo 5 intentos por minuto por IP.',
+  })
   async createBooking(
-    @Body() dto: CreateBookingDto,
+    @Body() dto: CreateBookingRequestDto,
   ): Promise<BookingResponseDto> {
     return this.bookingService.createBooking(dto);
   }
