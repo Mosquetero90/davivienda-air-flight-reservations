@@ -43,6 +43,14 @@ export class FlightService {
    * Búsqueda y filtrado de vuelos en Base de Datos (HU1).
    */
   async searchFlights(dto: SearchFlightsDto): Promise<Flight[]> {
+    if (
+      dto.origin &&
+      dto.destination &&
+      dto.origin.trim().toUpperCase() === dto.destination.trim().toUpperCase()
+    ) {
+      return [];
+    }
+
     const query = this.flightRepo.createQueryBuilder('flight');
 
     if (dto.origin) {
@@ -59,12 +67,42 @@ export class FlightService {
       );
     }
 
-    if (dto.date) {
-      query.andWhere('flight.departureTime LIKE :date', { date: `${dto.date}%` });
-    }
+    const targetDate = dto.date || new Date().toISOString().split('T')[0];
+    query.andWhere('flight.departureTime LIKE :date', { date: `${targetDate}%` });
 
     query.orderBy('flight.departureTime', 'ASC');
-    const entities = await query.getMany();
+    let entities = await query.getMany();
+
+    // Si no hay vuelos exactos en BD para la fecha solicitada (ej: fecha futura más allá de la semana sembrada),
+    // proyectar los itinerarios diarios de esa ruta con la fecha solicitada para permitir la reserva fluida
+    if (entities.length === 0) {
+      const fallbackQuery = this.flightRepo.createQueryBuilder('flight');
+      if (dto.origin) {
+        fallbackQuery.andWhere(
+          '(LOWER(flight.originCode) = LOWER(:orig) OR LOWER(flight.originCity) LIKE LOWER(:origLike))',
+          { orig: dto.origin, origLike: `%${dto.origin}%` },
+        );
+      }
+      if (dto.destination) {
+        fallbackQuery.andWhere(
+          '(LOWER(flight.destinationCode) = LOWER(:dest) OR LOWER(flight.destinationCity) LIKE LOWER(:destLike))',
+          { dest: dto.destination, destLike: `%${dto.destination}%` },
+        );
+      }
+      fallbackQuery.limit(5);
+      fallbackQuery.orderBy('flight.departureTime', 'ASC');
+      const fallbackEntities = await fallbackQuery.getMany();
+
+      entities = fallbackEntities.map((f) => {
+        const timePartDep = f.departureTime.split('T')[1] || '08:00:00Z';
+        const timePartArr = f.arrivalTime.split('T')[1] || '09:00:00Z';
+        return {
+          ...f,
+          departureTime: `${targetDate}T${timePartDep}`,
+          arrivalTime: `${targetDate}T${timePartArr}`,
+        };
+      });
+    }
 
     // Calcular conteo en vivo de asientos disponibles cruzando con Redis
     return Promise.all(

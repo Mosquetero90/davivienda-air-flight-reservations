@@ -60,6 +60,18 @@ describe('SeatLockService (Atomic Concurrency & Anti-Double Booking)', () => {
     expect(lock?.userId).toBe('user_1');
   });
 
+  it('debe rechazar USER_UNLOCKED si no se envía userId para evitar omisión de autorización (Anti-Bypass IDOR)', async () => {
+    await service.acquireLock('DV-204', '15C', '15C', 'user_1', 300);
+
+    // Intento de liberar sin userId
+    const released = await service.releaseLock('DV-204', '15C', '15C', undefined, 'USER_UNLOCKED');
+    expect(released).toBe(false);
+
+    // El asiento sigue protegido con lock de user_1
+    const lock = await service.getLock('DV-204', '15C');
+    expect(lock?.userId).toBe('user_1');
+  });
+
   it('debe manejar condiciones de carrera concurrentes simuladas con Promise.all (solo 1 ganador)', async () => {
     const seatId = '08D';
     const users = ['user_A', 'user_B', 'user_C', 'user_D', 'user_E'];

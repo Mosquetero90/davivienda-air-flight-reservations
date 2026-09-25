@@ -115,4 +115,63 @@ describe('FlightService (Catalog & Seats Matrix)', () => {
     expect(capturedEvent.flightId).toBe('DV-204');
     expect(capturedEvent.newStatus).toBe(FlightStatus.DELAYED);
   });
+
+  it('debe listar 5 vuelos de regreso para una ruta (ej. MDE -> BOG) en diferentes horarios', async () => {
+    const returnFlights = await flightService.searchFlights({
+      origin: 'MDE',
+      destination: 'BOG',
+    });
+
+    expect(returnFlights.length).toBe(5);
+    const flightNumbers = returnFlights.map((f) => f.flightNumber);
+    expect(flightNumbers).toContain('DV-201');
+    expect(flightNumbers).toContain('DV-203');
+    expect(flightNumbers).toContain('DV-205');
+    expect(flightNumbers).toContain('DV-207');
+    expect(flightNumbers).toContain('DV-319');
+  });
+
+  it('debe proyectar vuelos diarios al buscar por una fecha futura sin vuelos exactos', async () => {
+    const futureDate = '2026-12-25';
+    const flights = await flightService.searchFlights({
+      origin: 'BOG',
+      destination: 'CTG',
+      date: futureDate,
+    });
+
+    expect(flights.length).toBe(5);
+    flights.forEach((f) => {
+      expect(f.departureTime.startsWith(futureDate)).toBe(true);
+      expect(f.originCode).toBe('BOG');
+      expect(f.destinationCode).toBe('CTG');
+    });
+  });
+
+  it('debe retornar lista vacía si origen y destino son la misma ciudad', async () => {
+    const flights = await flightService.searchFlights({
+      origin: 'BOG',
+      destination: 'BOG',
+    });
+
+    expect(flights).toEqual([]);
+  });
+
+  it('debe encontrar vuelos reales sembrados para fechas futuras dentro de la semana', async () => {
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 3);
+    const dateStr = futureDate.toISOString().split('T')[0];
+
+    const flights = await flightService.searchFlights({
+      origin: 'BOG',
+      destination: 'MDE',
+      date: dateStr,
+    });
+
+    expect(flights.length).toBe(5);
+    flights.forEach((f) => {
+      expect(f.departureTime.startsWith(dateStr)).toBe(true);
+      expect(f.originCode).toBe('BOG');
+      expect(f.destinationCode).toBe('MDE');
+    });
+  });
 });

@@ -122,11 +122,26 @@ export class SeatLockService implements OnModuleDestroy {
   ): Promise<boolean> {
     const lockKey = this.buildKey(flightId, seatId);
 
-    if (userId) {
+    // Validación estricta de autorización: Si el desbloqueo es manual por usuario, requerir userId y verificar propiedad
+    if (reason === 'USER_UNLOCKED') {
+      if (!userId) {
+        this.logger.warn(
+          `[SECURITY] Intento de desbloqueo USER_UNLOCKED rechazado sin userId: Vuelo ${flightId}, Asiento ${seatNumber}`,
+        );
+        return false;
+      }
       const current = await this.getLock(flightId, seatId);
       if (current && current.userId !== userId) {
         this.logger.warn(
-          `Intento no autorizado de liberar lock: Usuario ${userId} intentó liberar asiento de ${current.userId}`,
+          `[SECURITY] Intento no autorizado de liberar lock: Usuario ${userId} intentó liberar asiento de ${current.userId}`,
+        );
+        return false;
+      }
+    } else if (userId) {
+      const current = await this.getLock(flightId, seatId);
+      if (current && current.userId !== userId) {
+        this.logger.warn(
+          `[SECURITY] Intento no autorizado de liberar lock: Usuario ${userId} intentó liberar asiento de ${current.userId}`,
         );
         return false;
       }
