@@ -726,8 +726,6 @@ export class FlightSearchComponent implements OnInit {
     if (type === 'ONE_WAY') {
       this.returnDate = '';
     }
-
-    this.applyFilter();
   }
 
   public getCityCode(city: City): string {
@@ -747,7 +745,6 @@ export class FlightSearchComponent implements OnInit {
         'warning',
       );
     }
-    this.applyFilter();
   }
 
   public onDestinationChange(newDest: string) {
@@ -758,7 +755,6 @@ export class FlightSearchComponent implements OnInit {
         'warning',
       );
     }
-    this.applyFilter();
   }
 
   public swapCities() {
@@ -766,7 +762,6 @@ export class FlightSearchComponent implements OnInit {
     const temp = this.origin;
     this.origin = this.destination;
     this.destination = temp;
-    this.applyFilter();
   }
 
   public onDateChange(newDate: string) {
@@ -779,7 +774,6 @@ export class FlightSearchComponent implements OnInit {
       );
     }
     this.validateOutboundAndReturnConsistency();
-    this.applyFilter();
   }
 
   public onReturnDateChange(newReturnDate: string) {
@@ -793,7 +787,6 @@ export class FlightSearchComponent implements OnInit {
       this.returnDate = newReturnDate;
     }
     this.validateOutboundAndReturnConsistency();
-    this.applyFilter();
   }
 
   public isReturnFlightBeforeOutbound(returnFlight: Flight): boolean {
@@ -832,6 +825,14 @@ export class FlightSearchComponent implements OnInit {
         'warning',
       );
     }
+
+    // Resetear selecciones previas al ejecutar una nueva búsqueda explícita
+    this.state.selectedOutboundFlight.set(null);
+    this.state.selectedReturnFlight.set(null);
+    this.state.myLockedOutboundSeats.set([]);
+    this.state.myLockedReturnSeats.set([]);
+    this.state.releaseMySeatLock();
+    this.activeTab = 'outbound';
 
     this.state.loadFlights({
       origin: this.origin || undefined,
