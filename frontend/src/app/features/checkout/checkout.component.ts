@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, input, computed } from '@angular/core';
+import { Component, OnInit, inject, input, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
@@ -6,14 +6,17 @@ import { FlightStateService } from '../../core/state/flight-state.service';
 import { FlightApiService } from '../../core/services/flight-api.service';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
+import { FunnelStepperComponent } from '../../shared/components/funnel-stepper/funnel-stepper.component';
+import { VirtualCardComponent } from '../../shared/components/virtual-card/virtual-card.component';
 
 @Component({
   selector: 'app-checkout',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, FunnelStepperComponent, VirtualCardComponent],
   template: `
-    <div class="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
-      <div class="max-w-4xl mx-auto">
+    <div class="min-h-screen bg-slate-50 pb-20">
+      <app-funnel-stepper [currentStep]="confirmedBooking() ? 'confirmation' : 'checkout'" />
+      <div class="max-w-4xl mx-auto pt-8 px-4 sm:px-6 lg:px-8">
         
         <!-- Case 1: Booking Confirmed Screen (Boarding Passes / Pasabordos Digitales) -->
         <div *ngIf="confirmedBooking()" class="animate-in fade-in zoom-in-95 duration-500 space-y-8">
@@ -31,7 +34,10 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
           </div>
 
           <!-- Boarding Pass 1: Vuelo de Ida -->
-          <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-w-2xl mx-auto relative">
+          <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-w-2xl mx-auto relative print:border-none print:shadow-none">
+            <!-- Muescas troqueladas laterales -->
+            <div class="absolute -left-3 top-44 w-6 h-6 rounded-full bg-slate-50 border-r border-slate-200 z-10 print:hidden"></div>
+            <div class="absolute -right-3 top-44 w-6 h-6 rounded-full bg-slate-50 border-l border-slate-200 z-10 print:hidden"></div>
             
             <!-- Red Header -->
             <div class="bg-gradient-to-r from-red-600 to-davivienda text-white p-6 flex items-center justify-between">
@@ -134,8 +140,11 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
           <!-- Boarding Pass 2: Vuelo de Regreso (si existe) -->
           <div
             *ngIf="confirmedReturnBooking()"
-            class="bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-w-2xl mx-auto relative animate-in fade-in slide-in-from-bottom-2 duration-500"
+            class="bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-w-2xl mx-auto relative animate-in fade-in slide-in-from-bottom-2 duration-500 print:border-none print:shadow-none"
           >
+            <!-- Muescas troqueladas laterales -->
+            <div class="absolute -left-3 top-44 w-6 h-6 rounded-full bg-slate-50 border-r border-slate-200 z-10 print:hidden"></div>
+            <div class="absolute -right-3 top-44 w-6 h-6 rounded-full bg-slate-50 border-l border-slate-200 z-10 print:hidden"></div>
             <!-- Blue/Davivienda Header -->
             <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 flex items-center justify-between">
               <div class="flex items-center gap-3">
@@ -474,6 +483,17 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                     </div>
                   </div>
 
+                  <!-- Tarjeta Virtual Interactiva 3D con Auto-Flip al CVV -->
+                  <div class="p-6 bg-slate-50/70 border-b border-slate-200 flex justify-center">
+                    <app-virtual-card
+                      [cardNumber]="cardNumber"
+                      [cardHolder]="((passenger.firstName || '') + ' ' + (passenger.lastName || '')).trim() || 'CARLOS MENDOZA'"
+                      [cardExp]="cardExp"
+                      [cardCvv]="cardCvv"
+                      [isFlipped]="isCardFlipped()"
+                    />
+                  </div>
+
                   <!-- Card Body -->
                   <div class="p-6 space-y-6">
                     <!-- Split Payment Toggle -->
@@ -658,13 +678,26 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                 </div>
 
                 <!-- DaviPlata Extra Info -->
-                <div *ngIf="selectedPaymentMethod === 'DAVIPLATA'" class="bg-red-50/60 p-4 rounded-xl border border-red-100 flex items-center gap-3">
-                  <div class="w-8 h-8 rounded-lg bg-daviplata text-white flex items-center justify-center font-bold text-sm">
-                    📱
+                <div *ngIf="selectedPaymentMethod === 'DAVIPLATA'" class="p-5 bg-gradient-to-r from-red-50 to-orange-50 rounded-2xl border border-red-200/80 space-y-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-daviplata text-white flex items-center justify-center font-black text-sm shadow-xs">
+                      DP
+                    </div>
+                    <div>
+                      <h4 class="font-extrabold text-sm text-slate-900">Débito Inmediato DaviPlata</h4>
+                      <p class="text-xs text-slate-500">Autorización rápida desde tu app móvil sin costo ni comisiones</p>
+                    </div>
                   </div>
-                  <div class="text-xs text-slate-700">
-                    <p class="font-bold text-slate-900">Confirmación vía DaviPlata</p>
-                    <p class="text-slate-500">Se debitarán $ {{ totalPrice() | number }} COP del número {{ passenger.phone }}</p>
+                  <div class="bg-white p-4 rounded-xl border border-red-100 shadow-2xs space-y-2">
+                    <p class="text-xs text-slate-600 font-medium">Recibirás una notificación push para autorizar la transacción:</p>
+                    <div class="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+                      <span class="text-2xl">📲</span>
+                      <div class="flex-1">
+                        <span class="font-bold text-slate-900 block font-tabular">¿Autorizas pago por $ {{ totalPrice() | number }} COP?</span>
+                        <p class="text-[11px] text-slate-500">Comercio: Davivienda Air &bull; Celular: {{ passenger.phone || '3108924411' }}</p>
+                      </div>
+                      <span class="text-xs font-bold text-daviplata bg-red-100 px-2.5 py-1 rounded-full">Listo</span>
+                    </div>
                   </div>
                 </div>
 
@@ -791,6 +824,11 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
 })
 export class CheckoutComponent implements OnInit {
   public readonly flightId = input.required<string>();
+  public readonly isCardFlipped = signal<boolean>(false);
+
+  public printBoardingPass() {
+    window.print();
+  }
   public readonly roundTripParam = input<string | undefined>(undefined, { alias: 'roundTrip' });
   public readonly returnFlightIdParam = input<string | undefined>(undefined, { alias: 'returnFlightId' });
   public readonly passengersParam = input<string | number | undefined>(undefined, { alias: 'passengers' });
