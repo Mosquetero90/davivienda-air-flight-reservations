@@ -9,12 +9,15 @@ import { Seat, SeatClass, SeatStatus } from '@davivienda/shared';
   selector: 'app-seat-map',
   standalone: true,
   imports: [CommonModule, RouterModule],
+  host: {
+    class: 'block w-full',
+  },
   template: `
     <div class="min-h-screen bg-slate-100 pb-32">
       
       <!-- Top Flight Header Bar -->
-      <section class="bg-white border-b border-slate-200 sticky top-16 z-40 shadow-sm py-4 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <section class="bg-white border-b border-slate-200 sticky top-16 z-40 shadow-sm py-3 px-4 sm:px-6 lg:px-8 w-full">
+        <div class="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           
           <div class="flex items-center gap-3">
             <a routerLink="/flights" class="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition-colors">
@@ -24,7 +27,7 @@ import { Seat, SeatClass, SeatStatus } from '@davivienda/shared';
             </a>
             <div>
               <div class="flex items-center gap-2">
-                <h1 class="text-xl font-extrabold text-slate-900">
+                <h1 class="text-lg sm:text-xl font-extrabold text-slate-900">
                   {{ flight()?.flightNumber ?? ('Vuelo ' + flightId()) }}
                 </h1>
                 <span class="text-xs bg-red-50 text-davivienda border border-red-100 font-bold px-2 py-0.5 rounded-full">
@@ -32,27 +35,27 @@ import { Seat, SeatClass, SeatStatus } from '@davivienda/shared';
                 </span>
               </div>
               <p class="text-xs text-slate-500 font-medium">
-                {{ flight()?.originCity }} ({{ flight()?.originCode }}) &rarr; {{ flight()?.destinationCity }} ({{ flight()?.destinationCode }}) &bull; {{ flight()?.departureTime | date:'shortTime' }}
+                {{ formatCityRoute(flight()?.originCity, flight()?.originCode) }} &rarr; {{ formatCityRoute(flight()?.destinationCity, flight()?.destinationCode) }} &bull; {{ flight()?.departureTime | date:'shortTime' }}
               </p>
             </div>
           </div>
 
           <!-- Real-Time Legend & Concurrency Status -->
-          <div class="flex items-center gap-4 text-xs font-semibold overflow-x-auto py-1">
-            <div class="flex items-center gap-1.5">
-              <span class="w-3.5 h-3.5 rounded bg-emerald-500 border border-emerald-600"></span>
+          <div class="flex items-center flex-wrap gap-2.5 sm:gap-4 text-xs font-semibold py-1">
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="w-3 h-3 rounded bg-emerald-500 border border-emerald-600"></span>
               <span class="text-slate-600">Disponible</span>
             </div>
-            <div class="flex items-center gap-1.5">
-              <span class="w-3.5 h-3.5 rounded bg-davivienda border border-red-700 animate-pulse"></span>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="w-3 h-3 rounded bg-davivienda border border-red-700 animate-pulse"></span>
               <span class="text-slate-900 font-bold">Tu Selección</span>
             </div>
-            <div class="flex items-center gap-1.5">
-              <span class="w-3.5 h-3.5 rounded bg-amber-400 border border-amber-500"></span>
-              <span class="text-slate-600">Bloqueado (Otro)</span>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="w-3 h-3 rounded bg-amber-400 border border-amber-500"></span>
+              <span class="text-slate-600">Bloqueado</span>
             </div>
-            <div class="flex items-center gap-1.5">
-              <span class="w-3.5 h-3.5 rounded bg-slate-300 border border-slate-400"></span>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="w-3 h-3 rounded bg-slate-300 border border-slate-400"></span>
               <span class="text-slate-400">Ocupado</span>
             </div>
           </div>
@@ -273,6 +276,12 @@ export class SeatMapComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     // Al salir de la vista, no liberamos automáticamente el lock si el usuario va a checkout
+  }
+
+  public formatCityRoute(city?: string, code?: string): string {
+    if (!city) return code ?? '';
+    if (code && city.includes(`(${code})`)) return city;
+    return code ? `${city} (${code})` : city;
   }
 
   public getSeat(row: number, col: string): Seat | undefined {

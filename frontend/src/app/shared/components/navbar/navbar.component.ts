@@ -9,8 +9,11 @@ import { SocketService } from '../../../core/services/socket.service';
   selector: 'app-navbar',
   standalone: true,
   imports: [CommonModule, RouterModule],
+  host: {
+    class: 'fixed top-0 inset-x-0 z-50 block w-full h-16 bg-white',
+  },
   template: `
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <header class="bg-white border-b border-slate-200 shadow-sm w-full h-16">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
           
