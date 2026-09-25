@@ -11,6 +11,9 @@ import {
   PassengerEntity,
   PaymentEntity,
   BookingEntity,
+  CountryEntity,
+  CityEntity,
+  AirportEntity,
 } from '../../database/entities';
 import { DatabaseSeederService } from '../../database/database-seeder.service';
 
@@ -31,6 +34,9 @@ describe('BookingService (Checkout & PNR issuance)', () => {
         PassengerEntity,
         PaymentEntity,
         BookingEntity,
+        CountryEntity,
+        CityEntity,
+        AirportEntity,
       ],
       synchronize: true,
     });
@@ -42,6 +48,9 @@ describe('BookingService (Checkout & PNR issuance)', () => {
       dataSource.getRepository(BookingEntity),
       dataSource.getRepository(PassengerEntity),
       dataSource.getRepository(PaymentEntity),
+      dataSource.getRepository(CountryEntity),
+      dataSource.getRepository(CityEntity),
+      dataSource.getRepository(AirportEntity),
     );
     await seeder.onApplicationBootstrap();
   });

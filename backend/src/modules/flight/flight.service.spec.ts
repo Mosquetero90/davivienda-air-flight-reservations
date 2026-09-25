@@ -9,6 +9,9 @@ import {
   PassengerEntity,
   PaymentEntity,
   BookingEntity,
+  CountryEntity,
+  CityEntity,
+  AirportEntity,
 } from '../../database/entities';
 import { DatabaseSeederService } from '../../database/database-seeder.service';
 
@@ -28,6 +31,9 @@ describe('FlightService (Catalog & Seats Matrix)', () => {
         PassengerEntity,
         PaymentEntity,
         BookingEntity,
+        CountryEntity,
+        CityEntity,
+        AirportEntity,
       ],
       synchronize: true,
     });
@@ -39,6 +45,9 @@ describe('FlightService (Catalog & Seats Matrix)', () => {
       dataSource.getRepository(BookingEntity),
       dataSource.getRepository(PassengerEntity),
       dataSource.getRepository(PaymentEntity),
+      dataSource.getRepository(CountryEntity),
+      dataSource.getRepository(CityEntity),
+      dataSource.getRepository(AirportEntity),
     );
     await seeder.onApplicationBootstrap();
   });

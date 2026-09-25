@@ -1,7 +1,16 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { FlightEntity, SeatEntity, BookingEntity, PassengerEntity, PaymentEntity } from './entities';
+import {
+  FlightEntity,
+  SeatEntity,
+  BookingEntity,
+  PassengerEntity,
+  PaymentEntity,
+  CountryEntity,
+  CityEntity,
+  AirportEntity,
+} from './entities';
 import { FlightStatus, SeatClass, SeatStatus } from '@davivienda/shared';
 
 @Injectable()
@@ -19,9 +28,17 @@ export class DatabaseSeederService implements OnApplicationBootstrap {
     private readonly passengerRepo: Repository<PassengerEntity>,
     @InjectRepository(PaymentEntity)
     private readonly paymentRepo: Repository<PaymentEntity>,
+    @InjectRepository(CountryEntity)
+    private readonly countryRepo: Repository<CountryEntity>,
+    @InjectRepository(CityEntity)
+    private readonly cityRepo: Repository<CityEntity>,
+    @InjectRepository(AirportEntity)
+    private readonly airportRepo: Repository<AirportEntity>,
   ) {}
 
   async onApplicationBootstrap() {
+    await this.seedLocations();
+
     const count = await this.flightRepo.count();
     if (count > 0) {
       this.logger.log(`✓ Base de datos ya inicializada (${count} vuelos existentes).`);
@@ -30,6 +47,55 @@ export class DatabaseSeederService implements OnApplicationBootstrap {
 
     this.logger.log('🌱 Inicializando datos semilla en Base de Datos (PostgreSQL/SQLite)...');
     await this.seedFlightsAndSeats();
+  }
+
+  public async seedLocations() {
+    const countriesCount = await this.countryRepo.count();
+    if (countriesCount > 0) {
+      return;
+    }
+
+    this.logger.log('🗺️ Sembrando catálogo geográfico relacional (Países, Ciudades y Aeropuertos)...');
+
+    // 1. País: Colombia
+    const colombia = this.countryRepo.create({
+      code: 'CO',
+      name: 'Colombia',
+      currency: 'COP',
+    });
+    await this.countryRepo.save(colombia);
+
+    // 2. Ciudades
+    const citiesData = [
+      { id: 'bogota', name: 'Bogotá', countryCode: 'CO' },
+      { id: 'medellin', name: 'Medellín', countryCode: 'CO' },
+      { id: 'cartagena', name: 'Cartagena', countryCode: 'CO' },
+      { id: 'cali', name: 'Cali', countryCode: 'CO' },
+      { id: 'santa-marta', name: 'Santa Marta', countryCode: 'CO' },
+      { id: 'barranquilla', name: 'Barranquilla', countryCode: 'CO' },
+      { id: 'san-andres', name: 'San Andrés', countryCode: 'CO' },
+    ];
+
+    const savedCities = await this.cityRepo.save(
+      citiesData.map((c) => this.cityRepo.create(c)),
+    );
+
+    // 3. Aeropuertos
+    const airportsData = [
+      { iataCode: 'BOG', name: 'Aeropuerto Internacional El Dorado', cityId: 'bogota' },
+      { iataCode: 'MDE', name: 'Aeropuerto Internacional José María Córdova', cityId: 'medellin' },
+      { iataCode: 'CTG', name: 'Aeropuerto Internacional Rafael Núñez', cityId: 'cartagena' },
+      { iataCode: 'CLO', name: 'Aeropuerto Internacional Alfonso Bonilla Aragón', cityId: 'cali' },
+      { iataCode: 'SMR', name: 'Aeropuerto Internacional Simón Bolívar', cityId: 'santa-marta' },
+      { iataCode: 'BAQ', name: 'Aeropuerto Internacional Ernesto Cortissoz', cityId: 'barranquilla' },
+      { iataCode: 'ADZ', name: 'Aeropuerto Internacional Gustavo Rojas Pinilla', cityId: 'san-andres' },
+    ];
+
+    await this.airportRepo.save(
+      airportsData.map((a) => this.airportRepo.create(a)),
+    );
+
+    this.logger.log(`✓ Catálogo geográfico sembrado: 1 país, ${savedCities.length} ciudades y ${airportsData.length} aeropuertos.`);
   }
 
   private async seedFlightsAndSeats() {

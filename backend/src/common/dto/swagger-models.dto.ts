@@ -277,3 +277,72 @@ export class ErrorResponseDto {
   @ApiProperty({ example: '2026-09-25T00:48:30.000Z', description: 'Marca de tiempo en que ocurrió el error' })
   timestamp?: string;
 }
+
+// ============================================================================
+// DTOs de Ubicaciones y Catálogo Geográfico (HU1 Extension)
+// ============================================================================
+
+export class CountryDto {
+  @ApiProperty({ example: 'CO', description: 'Código ISO del país' })
+  code!: string;
+
+  @ApiProperty({ example: 'Colombia', description: 'Nombre del país' })
+  name!: string;
+
+  @ApiProperty({ example: 'COP', description: 'Moneda oficial' })
+  currency!: string;
+}
+
+export class AirportDto {
+  @ApiProperty({ example: 'BOG', description: 'Código IATA del aeropuerto' })
+  iataCode!: string;
+
+  @ApiProperty({ example: 'Aeropuerto Internacional El Dorado', description: 'Nombre del aeropuerto' })
+  name!: string;
+
+  @ApiProperty({ example: 'bogota', description: 'ID de la ciudad asociada' })
+  cityId!: string;
+}
+
+export class CityDto {
+  @ApiProperty({ example: 'bogota', description: 'Identificador único de la ciudad' })
+  id!: string;
+
+  @ApiProperty({ example: 'Bogotá', description: 'Nombre de la ciudad' })
+  name!: string;
+
+  @ApiProperty({ example: 'CO', description: 'Código del país' })
+  countryCode!: string;
+
+  @ApiPropertyOptional({ type: () => CountryDto, description: 'País de la ciudad' })
+  country?: CountryDto;
+
+  @ApiPropertyOptional({ type: () => [AirportDto], description: 'Aeropuertos ubicados en la ciudad' })
+  airports?: AirportDto[];
+}
+
+export class CreateCityInputDto {
+  @ApiPropertyOptional({
+    example: 'bucaramanga',
+    description: 'Identificador único de la ciudad (opcional, auto-generado si se omite)',
+  })
+  id?: string;
+
+  @ApiProperty({ example: 'Bucaramanga', description: 'Nombre oficial de la ciudad' })
+  name!: string;
+
+  @ApiProperty({ example: 'CO', description: 'Código ISO del país' })
+  countryCode!: string;
+}
+
+export class CreateAirportInputDto {
+  @ApiProperty({ example: 'BGA', description: 'Código IATA de 3 letras del aeropuerto' })
+  iataCode!: string;
+
+  @ApiProperty({ example: 'Aeropuerto Internacional Palonegro', description: 'Nombre de la terminal aérea' })
+  name!: string;
+
+  @ApiProperty({ example: 'bucaramanga', description: 'ID de la ciudad a la que pertenece' })
+  cityId!: string;
+}
+

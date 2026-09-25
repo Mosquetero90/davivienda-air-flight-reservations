@@ -34,6 +34,11 @@ async function bootstrap() {
     PaymentDto,
     UpdateFlightStatusDto,
     ErrorResponseDto,
+    CityDto,
+    CountryDto,
+    AirportDto,
+    CreateCityInputDto,
+    CreateAirportInputDto,
   } = await import('./common/dto/swagger-models.dto');
 
   const swaggerConfig = new DocumentBuilder()
@@ -46,6 +51,7 @@ async function bootstrap() {
     .addTag('Asientos', 'Matriz de asientos y disponibilidad de cabina')
     .addTag('Reservas', 'Creación y consulta de reservas de vuelos')
     .addTag('Métricas', 'Métricas de ocupación y telemetría de cabina')
+    .addTag('Ubicaciones', 'Catálogo geográfico de países, ciudades y aeropuertos')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig, {
@@ -59,6 +65,11 @@ async function bootstrap() {
       PaymentDto,
       UpdateFlightStatusDto,
       ErrorResponseDto,
+      CityDto,
+      CountryDto,
+      AirportDto,
+      CreateCityInputDto,
+      CreateAirportInputDto,
     ],
   });
 

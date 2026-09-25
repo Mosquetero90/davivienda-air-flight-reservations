@@ -1,10 +1,10 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
 import { FlightStateService } from '../../core/state/flight-state.service';
 import { FlightApiService } from '../../core/services/flight-api.service';
-import { Flight, FlightStatus } from '@davivienda/shared';
+import { Flight, FlightStatus, City } from '@davivienda/shared';
 
 @Component({
   selector: 'app-flight-search',
@@ -56,10 +56,11 @@ import { Flight, FlightStatus } from '@davivienda/shared';
                   class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-davivienda/20 focus:border-davivienda"
                 >
                   <option value="">Todos los orígenes</option>
-                  <option value="BOG">Bogotá (BOG)</option>
-                  <option value="MDE">Medellín (MDE)</option>
-                  <option value="CTG">Cartagena (CTG)</option>
-                  <option value="CLO">Cali (CLO)</option>
+                  @for (city of cities(); track city.id) {
+                    <option [value]="city.airports?.[0]?.iataCode || city.name">
+                      {{ city.name }} ({{ city.airports?.[0]?.iataCode || city.id.toUpperCase() }})
+                    </option>
+                  }
                 </select>
               </div>
             </div>
@@ -71,10 +72,11 @@ import { Flight, FlightStatus } from '@davivienda/shared';
                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-davivienda/20 focus:border-davivienda"
               >
                 <option value="">Todos los destinos</option>
-                <option value="MDE">Medellín (MDE)</option>
-                <option value="CTG">Cartagena (CTG)</option>
-                <option value="CLO">Cali (CLO)</option>
-                <option value="BOG">Bogotá (BOG)</option>
+                @for (city of cities(); track city.id) {
+                  <option [value]="city.airports?.[0]?.iataCode || city.name">
+                    {{ city.name }} ({{ city.airports?.[0]?.iataCode || city.id.toUpperCase() }})
+                  </option>
+                }
               </select>
             </div>
 
@@ -275,6 +277,7 @@ export class FlightSearchComponent implements OnInit {
 
   public readonly flights = this.state.flights;
   public readonly isLoading = this.state.isLoading;
+  public readonly cities = signal<City[]>([]);
 
   public origin = '';
   public destination = '';
@@ -282,6 +285,14 @@ export class FlightSearchComponent implements OnInit {
 
   ngOnInit() {
     this.state.loadFlights();
+    this.loadCities();
+  }
+
+  private loadCities() {
+    this.flightApi.getCities().subscribe({
+      next: (data) => this.cities.set(data),
+      error: (err) => console.error('Error cargando catálogo de ciudades:', err),
+    });
   }
 
   public applyFilter() {

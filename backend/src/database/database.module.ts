@@ -6,6 +6,9 @@ import {
   PassengerEntity,
   PaymentEntity,
   BookingEntity,
+  CountryEntity,
+  CityEntity,
+  AirportEntity,
 } from './entities';
 import { DatabaseSeederService } from './database-seeder.service';
 
@@ -35,6 +38,9 @@ const logger = new Logger('DatabaseModule');
               PassengerEntity,
               PaymentEntity,
               BookingEntity,
+              CountryEntity,
+              CityEntity,
+              AirportEntity,
             ],
             synchronize: true, // Crea las tablas automáticamente en desarrollo/demo
             logging: false,
@@ -52,6 +58,9 @@ const logger = new Logger('DatabaseModule');
             PassengerEntity,
             PaymentEntity,
             BookingEntity,
+            CountryEntity,
+            CityEntity,
+            AirportEntity,
           ],
           synchronize: true,
           logging: false,
@@ -64,6 +73,9 @@ const logger = new Logger('DatabaseModule');
       PassengerEntity,
       PaymentEntity,
       BookingEntity,
+      CountryEntity,
+      CityEntity,
+      AirportEntity,
     ]),
   ],
   providers: [DatabaseSeederService],

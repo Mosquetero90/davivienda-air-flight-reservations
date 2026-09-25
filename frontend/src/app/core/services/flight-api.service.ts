@@ -9,6 +9,7 @@ import {
   CreateBookingDto,
   BookingResponseDto,
   Booking,
+  City,
 } from '@davivienda/shared';
 
 @Injectable({
@@ -62,4 +63,9 @@ export class FlightApiService {
   public createFlight(flightData: any): Observable<Flight> {
     return this.http.post<Flight>(`${this.baseUrl}/flights`, flightData);
   }
+
+  public getCities(): Observable<City[]> {
+    return this.http.get<City[]>(`${this.baseUrl}/locations/cities`);
+  }
 }
+
