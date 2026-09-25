@@ -326,4 +326,62 @@ describe('FlightSearchComponent (Round-Trip Flight Timing Validation)', () => {
       expect(state.selectedReturnFlight()).toBeNull();
     });
   });
+
+  describe('Mandatory Date Selection for Search', () => {
+    it('should be disabled and require outbound date in ONE_WAY when date is empty', () => {
+      component.tripType = 'ONE_WAY';
+      component.date = '';
+
+      expect(component.isSearchDisabled).toBeTrue();
+      expect(component.searchDisabledMessage).toBe('Debes seleccionar la fecha de ida');
+    });
+
+    it('should be enabled in ONE_WAY when outbound date is provided', () => {
+      component.tripType = 'ONE_WAY';
+      component.date = '2026-09-28';
+
+      expect(component.isSearchDisabled).toBeFalse();
+      expect(component.searchDisabledMessage).toBe('');
+    });
+
+    it('should be disabled and require both dates in ROUND_TRIP when both are empty', () => {
+      component.tripType = 'ROUND_TRIP';
+      component.date = '';
+      component.returnDate = '';
+
+      expect(component.isSearchDisabled).toBeTrue();
+      expect(component.searchDisabledMessage).toBe('Debes seleccionar las 2 fechas (ida y regreso)');
+    });
+
+    it('should be disabled and require return date in ROUND_TRIP when only outbound date is provided', () => {
+      component.tripType = 'ROUND_TRIP';
+      component.date = '2026-09-28';
+      component.returnDate = '';
+
+      expect(component.isSearchDisabled).toBeTrue();
+      expect(component.searchDisabledMessage).toBe('Debes seleccionar la fecha de regreso');
+    });
+
+    it('should be enabled in ROUND_TRIP when both outbound and return dates are provided', () => {
+      component.tripType = 'ROUND_TRIP';
+      component.date = '2026-09-28';
+      component.returnDate = '2026-09-30';
+
+      expect(component.isSearchDisabled).toBeFalse();
+      expect(component.searchDisabledMessage).toBe('');
+    });
+
+    it('should block applyFilter() and show warning notification if isSearchDisabled is true', () => {
+      const loadFlightsSpy = spyOn(state, 'loadFlights');
+      const notifSpy = spyOn(state, 'addNotification');
+
+      component.tripType = 'ONE_WAY';
+      component.date = '';
+
+      component.applyFilter();
+
+      expect(loadFlightsSpy).not.toHaveBeenCalled();
+      expect(notifSpy).toHaveBeenCalledWith('Debes seleccionar la fecha de ida', 'warning');
+    });
+  });
 });
