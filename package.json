@@ -16,7 +16,9 @@
     "start:backend": "npm run start:dev --workspace=backend",
     "start:frontend": "npm start --workspace=frontend",
     "dev": "npm run build:shared && concurrently \"npm run start:backend\" \"npm run start:frontend\"",
-    "test": "npm test --workspace=backend",
+    "test:backend": "npm test --workspace=backend",
+    "test:frontend": "npm test --workspace=frontend -- --watch=false",
+    "test": "npm run test:backend && npm run test:frontend",
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down"
   },

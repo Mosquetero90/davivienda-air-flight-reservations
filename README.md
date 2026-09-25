@@ -142,19 +142,29 @@ docker compose up --build
    ```
    *Accede en tu navegador a `http://localhost:4200`.*
 
+**Iniciar Desde Docker Compose**
+```bash
+   docker compose up --build -d
+   ```
+
 ---
 
 ## 🧪 Pruebas Automatizadas y Gates de Calidad
 
-El proyecto cuenta con una suite completa de pruebas unitarias que validan la lógica de concurrencia, TTL atómico, emisión de PNR y reactividad fina de Signals:
+El proyecto cuenta con una robusta suite de **119 pruebas unitarias automatizadas** que validan la lógica de concurrencia, TTL atómico, transacciones ACID, emisión de PNR, paginación y reactividad fina de Signals:
 
 ```bash
-# Ejecutar suite de pruebas unitarias
+# Ejecutar la suite completa de pruebas (Backend + Frontend)
 npm test
+
+# O ejecutar por workspace específico:
+npm run test:backend    # 35 tests en 6 suites (Jest)
+npm run test:frontend   # 84 tests en 8 suites (Karma / ChromeHeadless)
 ```
 
-### Resultados de la Suite de Pruebas:
+### Resumen de la Suite de Pruebas:
 ```text
+================================ BACKEND TEST SUITE (JEST) ================================
 PASS src/modules/seat/seat-lock.service.spec.ts (5 tests)
   ✓ debe conceder un bloqueo exclusivo cuando el asiento está disponible
   ✓ [DOUBLE-BOOKING PREVENTED] debe rechazar un segundo bloqueo concurrente sobre el mismo asiento
@@ -162,19 +172,50 @@ PASS src/modules/seat/seat-lock.service.spec.ts (5 tests)
   ✓ debe denegar la liberación del bloqueo a un usuario ajeno
   ✓ debe gestionar múltiples bloqueos concurrentes sin colisiones
 
-PASS src/modules/flight/flight.service.spec.ts (4 tests)
+PASS src/modules/flight/flight.service.spec.ts (6 tests)
   ✓ debe listar vuelos filtrados por origen y destino
   ✓ debe generar la cabina completa de 180 asientos para el Airbus A320neo
   ✓ debe reflejar asientos bloqueados por Redis en la matriz de cabina
   ✓ debe emitir evento reactivo al actualizar el estado de un vuelo (HU1)
+  ✓ debe respetar los parámetros de paginación (page y limit)
+  ✓ debe manejar páginas fuera de rango sin error
 
 PASS src/modules/booking/booking.service.spec.ts (3 tests)
   ✓ debe rechazar compra si el asiento NO está previamente bloqueado por el usuario
   ✓ debe confirmar compra, emitir PNR y pasar asiento a BOOKED permanentemente cuando el lock es válido
   ✓ debe rechazar si otro usuario intenta pagar un asiento bloqueado por un tercero
 
-Test Suites: 3 passed, 3 total
-Tests:       12 passed, 12 total
+PASS src/modules/booking/booking.controller.spec.ts (3 tests)
+  ✓ debe procesar checkout exitosamente y retornar PNR
+  ✓ debe capturar errores de lock ausente y retornar 400 Bad Request
+  ✓ debe aplicar rate limiting preventivo (HTTP 429 Too Many Requests)
+
+PASS src/modules/location/location.service.spec.ts (14 tests)
+  ✓ catálogo relacional de países, ciudades y aeropuertos sembrado e indexado
+
+PASS src/modules/metrics/metrics.service.spec.ts (4 tests)
+  ✓ debe calcular métricas exactas: disponibles, bloqueados, ocupados e ingresos estimados
+  ✓ debe retornar 0% de ocupación cuando un vuelo no tiene asientos
+  ✓ debe emitir actualizaciones reactivas por metricsUpdated$
+  ✓ debe propagar errores adecuadamente
+
+Test Suites: 6 passed, 6 total
+Tests:       35 passed, 35 total
+
+=============================== FRONTEND TEST SUITE (KARMA) ===============================
+PASS src/app/core/state/flight-state.service.spec.ts (6 tests)
+PASS src/app/features/flight-search/flight-search.component.spec.ts (24 tests)
+PASS src/app/features/seat-map/seat-map.component.spec.ts (12 tests)
+PASS src/app/features/checkout/checkout.component.spec.ts (14 tests)
+PASS src/app/features/dashboard/dashboard.component.spec.ts (6 tests)
+PASS src/app/shared/components/date-picker/date-picker.component.spec.ts (10 tests)
+PASS src/app/shared/components/passenger-selector/passenger-selector.component.spec.ts (10 tests)
+PASS src/app/app.component.spec.ts (2 tests)
+
+Test Suites: 8 passed, 8 total
+Tests:       84 passed, 84 total
+============================================================================================
+TOTAL GENERAL: 119 pruebas unitarias exitosas (100% Passing)
 ```
 
 ---
@@ -245,7 +286,7 @@ Para validar la sincronización en vivo y la prevención de sobre-reservas:
 │   │   └── events/                 # Eventos tipados Socket.io
 ├── docs/                           # Documentación técnica complementaria
 │   ├── architecture.md             # Justificación técnica y trade-offs
-│   └── ia.md                       # Informe de uso de IA y decisiones de ingeniería
+│   ├── ia.md                       # Informe de uso de IA y decisiones de ingeniería
 ├── docker-compose.yml              # Orquestación completa (Postgres, Redis, App)
 └── README.md                       # Guía de inicio rápido y presentación técnica
 ```
