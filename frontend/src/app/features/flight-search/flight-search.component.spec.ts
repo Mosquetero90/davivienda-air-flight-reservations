@@ -260,4 +260,70 @@ describe('FlightSearchComponent (Round-Trip Flight Timing Validation)', () => {
       expect(state.selectedReturnFlight()?.id).toBe(mockLaterReturnFlight.id);
     });
   });
+
+  describe('Manual Search (No Automatic Search/Filter on Input Changes)', () => {
+    let loadFlightsSpy: jasmine.Spy;
+
+    beforeEach(() => {
+      loadFlightsSpy = spyOn(state, 'loadFlights').and.callThrough();
+    });
+
+    it('should NOT trigger search when onOriginChange is called', () => {
+      component.onOriginChange('BOG');
+      expect(loadFlightsSpy).not.toHaveBeenCalled();
+    });
+
+    it('should NOT trigger search when onDestinationChange is called', () => {
+      component.onDestinationChange('MDE');
+      expect(loadFlightsSpy).not.toHaveBeenCalled();
+    });
+
+    it('should NOT trigger search when swapCities is called', () => {
+      component.origin = 'BOG';
+      component.destination = 'MDE';
+      component.swapCities();
+
+      expect(component.origin).toBe('MDE');
+      expect(component.destination).toBe('BOG');
+      expect(loadFlightsSpy).not.toHaveBeenCalled();
+    });
+
+    it('should NOT trigger search when onDateChange is called', () => {
+      component.onDateChange('2026-09-28');
+      expect(loadFlightsSpy).not.toHaveBeenCalled();
+    });
+
+    it('should NOT trigger search when onReturnDateChange is called', () => {
+      component.onReturnDateChange('2026-09-30');
+      expect(loadFlightsSpy).not.toHaveBeenCalled();
+    });
+
+    it('should NOT trigger search when setTripType is called', () => {
+      component.setTripType('ONE_WAY');
+      expect(loadFlightsSpy).not.toHaveBeenCalled();
+    });
+
+    it('should trigger search and reset selected flights when applyFilter (Buscar) is executed', () => {
+      state.selectedOutboundFlight.set(mockOutboundFlight);
+      state.selectedReturnFlight.set(mockLaterReturnFlight);
+
+      component.origin = 'BOG';
+      component.destination = 'CTG';
+      component.date = '2026-09-28';
+      component.tripType = 'ONE_WAY';
+
+      component.applyFilter();
+
+      expect(loadFlightsSpy).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          origin: 'BOG',
+          destination: 'CTG',
+          date: '2026-09-28',
+          tripType: 'ONE_WAY',
+        }),
+      );
+      expect(state.selectedOutboundFlight()).toBeNull();
+      expect(state.selectedReturnFlight()).toBeNull();
+    });
+  });
 });
