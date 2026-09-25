@@ -126,9 +126,11 @@ describe('CheckoutComponent - Credit and Debit Card Payment Flow', () => {
     component.fillDemoCard();
 
     expect(component.cardNumber).toBe('4557 8901 2345 6789');
+    expect(component.cardHolder).toBe('CARLOS MENDOZA');
     expect(component.cardExp).toBe('12/28');
     expect(component.cardCvv).toBe('789');
     expect(component.detectedCardBrand).toBe('visa');
+    expect(component.isCardFlipped()).toBeFalse();
   });
 
   it('should clear card form fields on clearCardForm()', () => {
@@ -136,9 +138,27 @@ describe('CheckoutComponent - Credit and Debit Card Payment Flow', () => {
     component.clearCardForm();
 
     expect(component.cardNumber).toBe('');
+    expect(component.cardHolder).toBe('');
     expect(component.cardExp).toBe('');
     expect(component.cardCvv).toBe('');
     expect(component.detectedCardBrand).toBeNull();
+    expect(component.isCardFlipped()).toBeFalse();
+  });
+
+  it('should update cardHolder in uppercase on onCardHolderInput()', () => {
+    const input = document.createElement('input');
+    input.value = 'Juan Perez';
+    component.onCardHolderInput({ target: input } as any);
+
+    expect(component.cardHolder).toBe('JUAN PEREZ');
+  });
+
+  it('should toggle isCardFlipped on toggleCardFlip()', () => {
+    expect(component.isCardFlipped()).toBeFalse();
+    component.toggleCardFlip();
+    expect(component.isCardFlipped()).toBeTrue();
+    component.toggleCardFlip();
+    expect(component.isCardFlipped()).toBeFalse();
   });
 
   it('should toggle split payment on and off', () => {

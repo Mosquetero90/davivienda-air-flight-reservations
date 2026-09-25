@@ -484,14 +484,18 @@ import { VirtualCardComponent } from '../../shared/components/virtual-card/virtu
                   </div>
 
                   <!-- Tarjeta Virtual Interactiva 3D con Auto-Flip al CVV -->
-                  <div class="p-6 bg-slate-50/70 border-b border-slate-200 flex justify-center">
+                  <div class="p-6 bg-slate-50/70 border-b border-slate-200 flex flex-col items-center gap-2">
                     <app-virtual-card
                       [cardNumber]="cardNumber"
-                      [cardHolder]="((passenger.firstName || '') + ' ' + (passenger.lastName || '')).trim() || 'CARLOS MENDOZA'"
+                      [cardHolder]="cardHolder"
                       [cardExp]="cardExp"
                       [cardCvv]="cardCvv"
                       [isFlipped]="isCardFlipped()"
+                      (flipToggle)="toggleCardFlip()"
                     />
+                    <p class="text-[11px] text-slate-400 font-medium">
+                      💡 Haz clic en la tarjeta o enfoca el campo CVV para ver el reverso
+                    </p>
                   </div>
 
                   <!-- Card Body -->
@@ -554,13 +558,31 @@ import { VirtualCardComponent } from '../../shared/components/virtual-card/virtu
                             placeholder="Número de tarjeta"
                             [(ngModel)]="cardNumber"
                             (input)="onCardNumberInput($event)"
+                            (focus)="isCardFlipped.set(false)"
                             class="w-full bg-transparent text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none tracking-wider font-mono"
                           />
                         </div>
-                        <p class="text-[11px] text-slate-500 mt-1">Ingresa tu tarjeta crédito, débito o Avianca UATP</p>
+                        <p class="text-[11px] text-slate-500 mt-1">Ingresa tu tarjeta de crédito o débito</p>
                       </div>
 
-                      <!-- Field 2 & 3: Expiration Date & CVV -->
+                      <!-- Field 2: Cardholder Name -->
+                      <div class="relative">
+                        <div class="flex items-center gap-2 border-b border-slate-300 focus-within:border-teal-600 pb-1.5 transition-colors">
+                          <span class="text-slate-400 text-base">👤</span>
+                          <input
+                            type="text"
+                            autocomplete="cc-name"
+                            placeholder="Nombre del titular (como aparece en la tarjeta)"
+                            [(ngModel)]="cardHolder"
+                            (input)="onCardHolderInput($event)"
+                            (focus)="isCardFlipped.set(false)"
+                            class="w-full bg-transparent text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none tracking-wider uppercase font-sans"
+                          />
+                        </div>
+                        <p class="text-[11px] text-slate-500 mt-1">Nombre y apellido impreso en la tarjeta</p>
+                      </div>
+
+                      <!-- Field 3 & 4: Expiration Date & CVV -->
                       <div class="grid grid-cols-2 gap-6">
                         <!-- MM/AA -->
                         <div class="relative">
@@ -573,6 +595,7 @@ import { VirtualCardComponent } from '../../shared/components/virtual-card/virtu
                               placeholder="MM/AA"
                               [(ngModel)]="cardExp"
                               (input)="onCardExpInput($event)"
+                              (focus)="isCardFlipped.set(false)"
                               class="w-full bg-transparent text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none tracking-widest uppercase font-mono"
                             />
                           </div>
@@ -590,6 +613,8 @@ import { VirtualCardComponent } from '../../shared/components/virtual-card/virtu
                               placeholder="CVV"
                               [(ngModel)]="cardCvv"
                               (input)="onCardCvvInput($event)"
+                              (focus)="isCardFlipped.set(true)"
+                              (blur)="isCardFlipped.set(false)"
                               class="w-full bg-transparent text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none tracking-widest font-mono"
                             />
                             <span
@@ -597,7 +622,7 @@ import { VirtualCardComponent } from '../../shared/components/virtual-card/virtu
                               title="Código de seguridad de 3 o 4 dígitos ubicado al reverso de tu tarjeta"
                             >i</span>
                           </div>
-                          <p class="text-[11px] text-slate-500 mt-1">Código de seguridad</p>
+                          <p class="text-[11px] text-slate-500 mt-1">Código de seguridad (al reverso)</p>
                         </div>
                       </div>
 
@@ -664,7 +689,7 @@ import { VirtualCardComponent } from '../../shared/components/virtual-card/virtu
                           <span>⚡ Cargar datos demo (Visa)</span>
                         </button>
                         <button
-                          *ngIf="cardNumber || cardExp || cardCvv"
+                          *ngIf="cardNumber || cardHolder || cardExp || cardCvv"
                           type="button"
                           (click)="clearCardForm()"
                           class="text-xs text-slate-400 hover:text-slate-600 font-medium cursor-pointer"
@@ -904,10 +929,20 @@ export class CheckoutComponent implements OnInit {
 
   // Credit / Debit Card fields (demonstration & booking flow)
   public cardNumber = '';
+  public cardHolder = '';
   public cardExp = '';
   public cardCvv = '';
   public splitPayment = false;
   public detectedCardBrand: 'visa' | 'mastercard' | 'amex' | 'diners' | null = null;
+
+  public toggleCardFlip() {
+    this.isCardFlipped.update((v) => !v);
+  }
+
+  public onCardHolderInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.cardHolder = input.value.toUpperCase();
+  }
 
   // Split payment secondary card fields
   public card2Number = '';
@@ -967,19 +1002,23 @@ export class CheckoutComponent implements OnInit {
 
   public fillDemoCard() {
     this.cardNumber = '4557 8901 2345 6789';
+    this.cardHolder = 'CARLOS MENDOZA';
     this.cardExp = '12/28';
     this.cardCvv = '789';
     this.detectedCardBrand = 'visa';
+    this.isCardFlipped.set(false);
   }
 
   public clearCardForm() {
     this.cardNumber = '';
+    this.cardHolder = '';
     this.cardExp = '';
     this.cardCvv = '';
     this.card2Number = '';
     this.card2Exp = '';
     this.card2Cvv = '';
     this.detectedCardBrand = null;
+    this.isCardFlipped.set(false);
   }
 
   public onCardNumberInput(event: Event) {
