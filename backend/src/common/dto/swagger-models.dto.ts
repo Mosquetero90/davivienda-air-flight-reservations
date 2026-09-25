@@ -42,6 +42,21 @@ export class SearchFlightsQueryDto {
   @Min(1)
   @Max(9)
   passengers?: number;
+
+  @ApiPropertyOptional({ example: 1, description: 'Número de página (base 1)', default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ example: 5, description: 'Cantidad de vuelos por página', default: 5 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 5;
 }
 
 export class CreateFlightDto {
@@ -216,6 +231,29 @@ export class FlightDto {
 
   @ApiProperty({ example: 180, description: 'Capacidad total de asientos de la cabina' })
   totalSeatsCount!: number;
+}
+
+export class PaginatedFlightsDto {
+  @ApiProperty({ type: () => [FlightDto], description: 'Listado de vuelos de la página actual' })
+  data!: FlightDto[];
+
+  @ApiProperty({ example: 25, description: 'Total de vuelos encontrados' })
+  total!: number;
+
+  @ApiProperty({ example: 1, description: 'Página actual' })
+  page!: number;
+
+  @ApiProperty({ example: 5, description: 'Límite de vuelos por página' })
+  limit!: number;
+
+  @ApiProperty({ example: 5, description: 'Total de páginas calculadas' })
+  totalPages!: number;
+
+  @ApiProperty({ example: true, description: 'Indica si existe página siguiente' })
+  hasNextPage!: boolean;
+
+  @ApiProperty({ example: false, description: 'Indica si existe página anterior' })
+  hasPreviousPage!: boolean;
 }
 
 export class UpdateFlightStatusDto {
