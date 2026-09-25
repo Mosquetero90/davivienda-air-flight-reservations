@@ -155,23 +155,23 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
             </a>
 
             <!-- Countdown Pill -->
-            <div *ngIf="myLockedSeat()" class="flex items-center gap-2 bg-red-50 text-davivienda border border-red-200 px-3.5 py-1.5 rounded-full text-xs font-bold">
+            <div *ngIf="myLockedSeats().length > 0" class="flex items-center gap-2 bg-red-50 text-davivienda border border-red-200 px-3.5 py-1.5 rounded-full text-xs font-bold">
               <span>Tiempo para completar tu compra:</span>
               <span class="font-mono text-sm tracking-wider">{{ formattedRemainingTime() }}</span>
             </div>
           </div>
 
           <!-- If no seat is locked, display warning and redirect -->
-          <div *ngIf="!myLockedSeat()" class="bg-amber-50 border border-amber-200 p-6 rounded-2xl text-center">
-            <h2 class="text-lg font-bold text-amber-900">No tienes un asiento bloqueado actualmente</h2>
-            <p class="text-xs text-amber-700 mt-1 mb-4">Selecciona primero un asiento en el mapa de cabina para proceder al pago.</p>
+          <div *ngIf="myLockedSeats().length === 0" class="bg-amber-50 border border-amber-200 p-6 rounded-2xl text-center">
+            <h2 class="text-lg font-bold text-amber-900">No tienes asientos bloqueados actualmente</h2>
+            <p class="text-xs text-amber-700 mt-1 mb-4">Selecciona primero los asientos en el mapa de cabina para proceder al pago.</p>
             <a [routerLink]="['/flight', flightId(), 'seats']" class="inline-block px-5 py-2.5 bg-davivienda text-white font-bold text-xs rounded-xl shadow-md">
-              Ir a Seleccionar Asiento
+              Ir a Seleccionar Asientos
             </a>
           </div>
 
           <!-- Checkout Layout: 2 Columns (Form on left, Order summary on right) -->
-          <div *ngIf="myLockedSeat()" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div *ngIf="myLockedSeats().length > 0" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
             <!-- Left 2 Cols: Passenger and Payment Form -->
             <div class="lg:col-span-2 space-y-6">
@@ -181,9 +181,11 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                 <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
                   <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
                     <span class="w-6 h-6 rounded-full bg-red-100 text-davivienda flex items-center justify-center text-xs font-black">1</span>
-                    Información del Pasajero
+                    Información del Contacto y Pasajero Principal
                   </h2>
-                  <span class="text-xs text-slate-500 font-medium">Asiento {{ myLockedSeat()?.seatNumber }}</span>
+                  <span class="text-xs font-bold text-davivienda bg-red-50 px-2.5 py-1 rounded-full border border-red-100">
+                    Asiento(s): {{ selectedSeatsDisplay() }}
+                  </span>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -307,7 +309,7 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                   </div>
                   <div class="text-xs text-slate-700">
                     <p class="font-bold text-slate-900">Confirmación vía DaviPlata</p>
-                    <p class="text-slate-500">Se debitarán $ {{ myLockedSeat()?.price | number }} COP del número {{ passenger.phone }}</p>
+                    <p class="text-slate-500">Se debitarán $ {{ totalPrice() | number }} COP del número {{ passenger.phone }}</p>
                   </div>
                 </div>
 
@@ -334,8 +336,12 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                     <span class="font-bold text-slate-800">{{ flight()?.originCode }} &rarr; {{ flight()?.destinationCode }}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-slate-500">Asiento Seleccionado:</span>
-                    <span class="font-bold text-davivienda">{{ myLockedSeat()?.seatNumber }} ({{ myLockedSeat()?.seatClass }})</span>
+                    <span class="text-slate-500">Pasajeros:</span>
+                    <span class="font-bold text-slate-800">{{ myLockedSeats().length }} pasajero(s)</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-slate-500">Asientos:</span>
+                    <span class="font-bold text-davivienda">{{ selectedSeatsDisplay() }}</span>
                   </div>
                   <div class="flex justify-between">
                     <span class="text-slate-500">Estado del Lock:</span>
@@ -347,15 +353,15 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                 <div class="space-y-2 py-4 border-b border-slate-100 text-xs">
                   <div class="flex justify-between text-slate-500">
                     <span>Tarifa Base</span>
-                    <span>$ {{ (myLockedSeat()?.price || 0) * 0.81 | number:'1.0-0' }} COP</span>
+                    <span>$ {{ (totalPrice() * 0.81) | number:'1.0-0' }} COP</span>
                   </div>
                   <div class="flex justify-between text-slate-500">
                     <span>IVA y Tasas (19%)</span>
-                    <span>$ {{ (myLockedSeat()?.price || 0) * 0.19 | number:'1.0-0' }} COP</span>
+                    <span>$ {{ (totalPrice() * 0.19) | number:'1.0-0' }} COP</span>
                   </div>
                   <div class="flex justify-between text-base font-black text-slate-900 pt-2">
                     <span>Total a Pagar:</span>
-                    <span class="text-davivienda">$ {{ myLockedSeat()?.price | number }} COP</span>
+                    <span class="text-davivienda">$ {{ totalPrice() | number }} COP</span>
                   </div>
                 </div>
 
@@ -366,7 +372,7 @@ import { BookingPassengerDto, BookingResponseDto } from '@davivienda/shared';
                   class="mt-6 w-full py-3.5 rounded-xl bg-davivienda hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2"
                 >
                   <span *ngIf="isSubmitting()" class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-r-transparent"></span>
-                  <span>{{ isSubmitting() ? 'Procesando Transacción ACID...' : 'Pagar y Confirmar Reserva' }}</span>
+                  <span>{{ isSubmitting() ? 'Procesando Transacción ACID...' : 'Pagar y Confirmar Reserva (' + myLockedSeats().length + ')' }}</span>
                 </button>
 
                 <p class="text-[10px] text-center text-slate-400 mt-3">
@@ -393,9 +399,20 @@ export class CheckoutComponent implements OnInit {
   private readonly router = inject(Router);
 
   public readonly flight = this.state.selectedFlight;
-  public readonly myLockedSeat = this.state.myLockedSeat;
+  public readonly myLockedSeats = this.state.myLockedSeats;
+  public readonly passengers = this.state.passengers;
   public readonly lockSeconds = this.state.lockSecondsRemaining;
   public readonly confirmedBooking = this.state.lastBooking;
+
+  public readonly totalPrice = computed(() =>
+    this.myLockedSeats().reduce((sum, s) => sum + s.price, 0),
+  );
+
+  public readonly selectedSeatsDisplay = computed(() =>
+    this.myLockedSeats()
+      .map((s) => s.seatNumber)
+      .join(', '),
+  );
 
   public selectedPaymentMethod: 'DAVIPLATA' | 'CARD' | 'PSE' = 'DAVIPLATA';
   public isSubmitting = this.state.isLoading;

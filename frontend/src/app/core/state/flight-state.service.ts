@@ -8,6 +8,7 @@ import {
   BookingResponseDto,
   CreateBookingDto,
   BookingPassengerDto,
+  TripType,
 } from '@davivienda/shared';
 import { FlightApiService } from '../services/flight-api.service';
 import { SocketService } from '../services/socket.service';
@@ -24,11 +25,36 @@ export interface AppNotification {
   providedIn: 'root',
 })
 export class FlightStateService {
+  private getInitialPassengers(): number {
+    try {
+      const saved = sessionStorage.getItem('davivienda_passengers');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val) && val >= 1 && val <= 9) return val;
+      }
+    } catch {}
+    return 1;
+  }
+
   // Signals Principales
   public readonly flights = signal<Flight[]>([]);
+  public readonly returnFlights = signal<Flight[]>([]);
+  public readonly tripType = signal<TripType>('ROUND_TRIP');
+  public readonly passengers = signal<number>(this.getInitialPassengers());
+
+  public setPassengers(count: number) {
+    const safe = Math.max(1, Math.min(9, count));
+    this.passengers.set(safe);
+    try {
+      sessionStorage.setItem('davivienda_passengers', safe.toString());
+    } catch {}
+  }
   public readonly selectedFlight = signal<Flight | null>(null);
+  public readonly selectedOutboundFlight = signal<Flight | null>(null);
+  public readonly selectedReturnFlight = signal<Flight | null>(null);
   public readonly seats = signal<Seat[]>([]);
-  public readonly myLockedSeat = signal<Seat | null>(null);
+  public readonly myLockedSeats = signal<Seat[]>([]);
+  public readonly myLockedSeat = computed(() => this.myLockedSeats()[0] ?? null);
   public readonly lockSecondsRemaining = signal<number>(0);
   public readonly metrics = signal<FlightMetrics | null>(null);
   public readonly lastBooking = signal<BookingResponseDto | null>(null);
@@ -75,14 +101,13 @@ export class FlightStateService {
       this.seats.set(payload.seats);
       this.metrics.set(payload.metrics);
 
-      // Verificar si el usuario ya tenía un asiento bloqueado previamente
+      // Verificar si el usuario ya tenía asientos bloqueados previamente
       const currentUserId = this.userSession.currentUser().id;
-      const mySeat = payload.seats.find(
+      const mySeats = payload.seats.filter(
         (s) => s.status === SeatStatus.LOCKED && s.lockedByUserId === currentUserId,
       );
-      if (mySeat) {
-        this.myLockedSeat.set(mySeat);
-        // Iniciar timer si tiene tiempo
+      this.myLockedSeats.set(mySeats);
+      if (mySeats.length > 0) {
         this.startLockCountdown(300);
       }
     });
@@ -108,15 +133,26 @@ export class FlightStateService {
       );
 
       if (isMine) {
-        const lockedSeat = this.seats().find((s) => s.seatNumber === payload.seatNumber) || null;
-        this.myLockedSeat.set(lockedSeat);
+        const lockedSeat = this.seats().find((s) => s.seatNumber === payload.seatNumber);
+        if (lockedSeat) {
+          this.myLockedSeats.update((list) => {
+            const idx = list.findIndex((s) => s.seatNumber === payload.seatNumber);
+            if (idx >= 0) {
+              const copy = [...list];
+              copy[idx] = lockedSeat;
+              return copy;
+            }
+            return [...list, lockedSeat];
+          });
+        }
         this.startLockCountdown(payload.remainingSeconds || 300);
         this.addNotification(
-          `¡Asiento ${payload.seatNumber} bloqueado con éxito! Tienes 5 minutos para completar el pago.`,
+          `¡Asiento ${payload.seatNumber} bloqueado con éxito! (${this.myLockedSeats().length} de ${this.passengers()} seleccionados)`,
           'success',
         );
       } else {
-        // Bloqueado por otra persona
+        // Si fue bloqueado por otra persona y estaba en mi lista local, retirarlo
+        this.myLockedSeats.update((list) => list.filter((s) => s.seatNumber !== payload.seatNumber));
         if (this.selectedFlight()?.id === payload.flightId) {
           this.addNotification(
             `Asiento ${payload.seatNumber} acaba de ser reservado temporalmente por otro usuario.`,
@@ -136,8 +172,7 @@ export class FlightStateService {
 
     // 4. Un asiento fue liberado (por timeout TTL, cancelación o compra completada)
     this.socketService.seatReleased$.subscribe((payload) => {
-      const currentMySeat = this.myLockedSeat();
-      const wasMine = currentMySeat?.seatNumber === payload.seatNumber;
+      const wasMine = this.myLockedSeats().some((s) => s.seatNumber === payload.seatNumber);
 
       this.seats.update((currentSeats) =>
         currentSeats.map((s) => {
@@ -154,8 +189,10 @@ export class FlightStateService {
       );
 
       if (wasMine) {
-        this.myLockedSeat.set(null);
-        this.stopLockCountdown();
+        this.myLockedSeats.update((list) => list.filter((s) => s.seatNumber !== payload.seatNumber));
+        if (this.myLockedSeats().length === 0) {
+          this.stopLockCountdown();
+        }
 
         if (payload.reason === 'EXPIRED') {
           this.addNotification(
@@ -163,7 +200,7 @@ export class FlightStateService {
             'warning',
           );
         } else if (payload.reason === 'USER_UNLOCKED') {
-          this.addNotification(`Asiento ${payload.seatNumber} liberado voluntariamente.`, 'info');
+          this.addNotification(`Asiento ${payload.seatNumber} liberado.`, 'info');
         }
       }
     });
@@ -184,8 +221,8 @@ export class FlightStateService {
         }),
       );
 
-      if (this.myLockedSeat()?.seatNumber === payload.seatNumber) {
-        this.myLockedSeat.set(null);
+      this.myLockedSeats.update((list) => list.filter((s) => s.seatNumber !== payload.seatNumber));
+      if (this.myLockedSeats().length === 0) {
         this.stopLockCountdown();
       }
     });
@@ -221,20 +258,65 @@ export class FlightStateService {
     });
   }
 
-  // Cargar lista de vuelos desde API REST
-  public loadFlights(filters?: { origin?: string; destination?: string; date?: string }) {
+  // Cargar lista de vuelos desde API REST (con soporte de Ida y Vuelta)
+  public loadFlights(filters?: {
+    origin?: string;
+    destination?: string;
+    date?: string;
+    returnDate?: string;
+    passengers?: number;
+    tripType?: TripType;
+  }) {
     this.isLoading.set(true);
-    this.flightApi.getFlights(filters).subscribe({
-      next: (data) => {
-        this.flights.set(data);
-        this.isLoading.set(false);
-      },
-      error: (err) => {
-        this.isLoading.set(false);
-        this.addNotification('Error al cargar vuelos disponibles.', 'error');
-        console.error(err);
-      },
-    });
+
+    if (filters?.tripType) {
+      this.tripType.set(filters.tripType);
+    }
+    if (filters?.passengers) {
+      this.setPassengers(filters.passengers);
+    }
+
+    // 1. Cargar vuelos de ida
+    this.flightApi
+      .getFlights({
+        origin: filters?.origin,
+        destination: filters?.destination,
+        date: filters?.date,
+        passengers: filters?.passengers ?? this.passengers(),
+      })
+      .subscribe({
+        next: (data) => {
+          this.flights.set(data);
+          this.isLoading.set(false);
+        },
+        error: (err) => {
+          this.isLoading.set(false);
+          this.addNotification('Error al cargar vuelos disponibles.', 'error');
+          console.error(err);
+        },
+      });
+
+    // 2. Si es viaje de Ida y Vuelta y se seleccionó origen/destino, cargar vuelos de regreso
+    const isRound = filters?.tripType ? filters.tripType === 'ROUND_TRIP' : this.tripType() === 'ROUND_TRIP';
+    if (isRound && filters?.origin && filters?.destination) {
+      this.flightApi
+        .getFlights({
+          origin: filters.destination,
+          destination: filters.origin,
+          date: filters.returnDate,
+          passengers: filters?.passengers ?? this.passengers(),
+        })
+        .subscribe({
+          next: (returnData) => {
+            this.returnFlights.set(returnData);
+          },
+          error: (err) => {
+            console.error('Error al cargar vuelos de regreso:', err);
+          },
+        });
+    } else {
+      this.returnFlights.set([]);
+    }
   }
 
   // Seleccionar un vuelo y suscribirse a su sala WebSockets en tiempo real
@@ -273,77 +355,111 @@ export class FlightStateService {
     });
   }
 
-  // Solicitar bloqueo atómico de un asiento (HU2)
+  // Solicitar bloqueo atómico de un asiento (HU2) respetando el número de pasajeros
   public requestSeatLock(seatNumber: string) {
     const flight = this.selectedFlight();
     if (!flight) return;
 
     const currentUserId = this.userSession.currentUser().id;
+    const currentLocks = this.myLockedSeats();
+    const maxAllowed = this.passengers();
 
-    // Si ya tengo otro asiento bloqueado, liberarlo primero
-    const currentLock = this.myLockedSeat();
-    if (currentLock && currentLock.seatNumber !== seatNumber) {
-      this.socketService.requestSeatUnlock(flight.id, currentLock.seatNumber, currentUserId);
+    if (currentLocks.length >= maxAllowed) {
+      this.addNotification(
+        `Ya has seleccionado los ${maxAllowed} asientos permitidos para tus pasajeros. Deselecciona uno si deseas cambiarlo.`,
+        'warning',
+      );
+      return;
     }
 
     this.socketService.requestSeatLock(flight.id, seatNumber, currentUserId);
   }
 
-  // Liberar el asiento actualmente bloqueado
-  public releaseMySeatLock() {
+  // Liberar un asiento específico
+  public releaseSeatLock(seatNumber: string) {
     const flight = this.selectedFlight();
-    const mySeat = this.myLockedSeat();
-    if (!flight || !mySeat) return;
+    if (!flight) return;
 
     const currentUserId = this.userSession.currentUser().id;
-    this.socketService.requestSeatUnlock(flight.id, mySeat.seatNumber, currentUserId);
+    this.socketService.requestSeatUnlock(flight.id, seatNumber, currentUserId);
   }
 
-  // Confirmar compra y emitir boleto PNR (HU3)
-  public confirmBooking(
+  // Liberar todos los asientos actualmente bloqueados
+  public releaseMySeatLock() {
+    const flight = this.selectedFlight();
+    const mySeats = this.myLockedSeats();
+    if (!flight || mySeats.length === 0) return;
+
+    const currentUserId = this.userSession.currentUser().id;
+    for (const s of mySeats) {
+      this.socketService.requestSeatUnlock(flight.id, s.seatNumber, currentUserId);
+    }
+  }
+
+  // Confirmar compra y emitir boleto PNR para todos los pasajeros (HU3)
+  public async confirmBooking(
     passenger: BookingPassengerDto,
     paymentMethod: 'DAVIPLATA' | 'CARD' | 'PSE',
   ): Promise<BookingResponseDto> {
     const flight = this.selectedFlight();
-    const seat = this.myLockedSeat();
+    const seats = this.myLockedSeats();
 
-    if (!flight || !seat) {
-      return Promise.reject(new Error('Debes tener un asiento bloqueado para continuar'));
+    if (!flight || seats.length === 0) {
+      return Promise.reject(new Error('Debes tener al menos un asiento bloqueado para continuar'));
     }
 
-    const dto: CreateBookingDto = {
-      flightId: flight.id,
-      seatId: seat.seatNumber,
-      userId: this.userSession.currentUser().id,
-      passenger,
-      payment: {
-        method: paymentMethod as any,
-      },
-    };
-
     this.isLoading.set(true);
-    return new Promise((resolve, reject) => {
-      this.flightApi.createBooking(dto).subscribe({
-        next: (bookingResponse) => {
-          this.isLoading.set(false);
-          this.lastBooking.set(bookingResponse);
-          this.myLockedSeat.set(null);
-          this.stopLockCountdown();
-          this.addNotification(
-            `¡Compra Exitosa! PNR emitido: ${bookingResponse.bookingReference}`,
-            'success',
-          );
-          resolve(bookingResponse);
-        },
-        error: (err) => {
-          this.isLoading.set(false);
-          const errorMsg =
-            err.error?.message || 'Error al procesar el pago o la reserva expiró.';
-          this.addNotification(errorMsg, 'error');
-          reject(new Error(errorMsg));
-        },
-      });
-    });
+    try {
+      let lastResponse: BookingResponseDto | null = null;
+      let totalPaidSum = 0;
+
+      for (const seat of seats) {
+        const dto: CreateBookingDto = {
+          flightId: flight.id,
+          seatId: seat.seatNumber,
+          userId: this.userSession.currentUser().id,
+          passenger,
+          payment: {
+            method: paymentMethod as any,
+          },
+        };
+
+        const res = await new Promise<BookingResponseDto>((resolve, reject) => {
+          this.flightApi.createBooking(dto).subscribe({
+            next: (data) => resolve(data),
+            error: (err) => reject(err),
+          });
+        });
+
+        lastResponse = res;
+        totalPaidSum += res.totalPaid;
+      }
+
+      this.isLoading.set(false);
+      this.myLockedSeats.set([]);
+      this.stopLockCountdown();
+
+      if (lastResponse) {
+        const combinedResponse: BookingResponseDto = {
+          ...lastResponse,
+          seatNumber: seats.map((s) => s.seatNumber).join(', '),
+          totalPaid: totalPaidSum,
+        };
+        this.lastBooking.set(combinedResponse);
+        this.addNotification(
+          `¡Compra Exitosa para ${seats.length} pasajero(s)! PNR: ${lastResponse.bookingReference}`,
+          'success',
+        );
+        return combinedResponse;
+      }
+
+      throw new Error('No se pudo procesar la reserva.');
+    } catch (err: any) {
+      this.isLoading.set(false);
+      const errorMsg = err.error?.message || 'Error al procesar el pago o la reserva expiró.';
+      this.addNotification(errorMsg, 'error');
+      throw new Error(errorMsg);
+    }
   }
 
   // Métodos auxiliares de countdown timer

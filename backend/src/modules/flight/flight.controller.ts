@@ -39,13 +39,15 @@ export class FlightController {
   @ApiQuery({ name: 'origin', required: false, description: 'Código o nombre de ciudad origen (ej: BOG)' })
   @ApiQuery({ name: 'destination', required: false, description: 'Código o nombre de ciudad destino (ej: MDE)' })
   @ApiQuery({ name: 'date', required: false, description: 'Fecha de salida (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'passengers', required: false, description: 'Número de pasajeros solicitados (ej: 1)' })
   @ApiResponse({ status: 200, type: [FlightDto], description: 'Listado de vuelos encontrados' })
   async searchFlights(
     @Query('origin') origin?: string,
     @Query('destination') destination?: string,
     @Query('date') date?: string,
+    @Query('passengers') passengers?: number,
   ): Promise<Flight[]> {
-    return this.flightService.searchFlights({ origin, destination, date });
+    return this.flightService.searchFlights({ origin, destination, date, passengers });
   }
 
   @Get(':id')

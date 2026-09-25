@@ -51,7 +51,7 @@ import { SocketService } from '../../../core/services/socket.service';
                 class="px-3.5 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-davivienda hover:bg-slate-50 transition-colors flex items-center gap-1.5"
               >
                 <span>Cabina {{ selectedFlight()?.flightNumber }}</span>
-                <span *ngIf="myLockedSeat()" class="w-2 h-2 rounded-full bg-davivienda animate-ping"></span>
+                <span *ngIf="myLockedSeats().length > 0" class="w-2 h-2 rounded-full bg-davivienda animate-ping"></span>
               </a>
               <a
                 routerLink="/dashboard"
@@ -69,13 +69,13 @@ import { SocketService } from '../../../core/services/socket.service';
             
             <!-- Active 5-min TTL Countdown Timer -->
             <div
-              *ngIf="myLockedSeat()"
+              *ngIf="myLockedSeats().length > 0"
               class="flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 text-white px-3 py-1.5 rounded-full shadow-sm shadow-red-200 text-xs font-semibold animate-pulse"
             >
               <svg class="w-4 h-4 animate-spin" style="animation-duration: 4s;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <circle cx="12" cy="12" r="10" stroke-width="2" stroke="currentColor" stroke-dasharray="32" stroke-linecap="round"/>
               </svg>
-              <span>Asiento {{ myLockedSeat()?.seatNumber }}:</span>
+              <span>{{ myLockedSeats().length === 1 ? 'Asiento ' + myLockedSeats()[0].seatNumber : myLockedSeats().length + ' Asientos' }}:</span>
               <span class="font-mono text-sm tracking-wider font-bold">{{ formattedRemainingTime() }}</span>
             </div>
 
@@ -134,6 +134,7 @@ export class NavbarComponent {
   private readonly socketService = inject(SocketService);
 
   public readonly selectedFlight = this.state.selectedFlight;
+  public readonly myLockedSeats = this.state.myLockedSeats;
   public readonly myLockedSeat = this.state.myLockedSeat;
   public readonly lockSeconds = this.state.lockSecondsRemaining;
   public readonly currentUser = this.userSession.currentUser;

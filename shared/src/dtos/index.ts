@@ -1,7 +1,12 @@
+export type TripType = 'ROUND_TRIP' | 'ONE_WAY';
+
 export interface SearchFlightsDto {
   origin?: string;
   destination?: string;
   date?: string; // YYYY-MM-DD
+  returnDate?: string; // YYYY-MM-DD
+  passengers?: number;
+  tripType?: TripType;
 }
 
 export interface CreateBookingDto {

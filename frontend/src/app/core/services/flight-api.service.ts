@@ -27,11 +27,13 @@ export class FlightApiService {
     origin?: string;
     destination?: string;
     date?: string;
+    passengers?: number;
   }): Observable<Flight[]> {
     let params = new HttpParams();
     if (filters?.origin) params = params.set('origin', filters.origin);
     if (filters?.destination) params = params.set('destination', filters.destination);
     if (filters?.date) params = params.set('date', filters.date);
+    if (filters?.passengers) params = params.set('passengers', filters.passengers.toString());
 
     return this.http.get<Flight[]>(`${this.baseUrl}/flights`, { params });
   }

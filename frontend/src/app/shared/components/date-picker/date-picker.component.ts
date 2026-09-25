@@ -38,17 +38,22 @@ export interface CalendarDay {
       <!-- Trigger Input Button -->
       <div
         (click)="toggleOpen($event)"
-        class="w-full flex items-center justify-between bg-slate-50 hover:bg-slate-100/80 border rounded-xl px-3.5 py-2.5 min-h-[44px] text-sm font-semibold transition-all cursor-pointer select-none"
+        class="w-full flex items-center justify-between text-sm font-semibold transition-all select-none"
         [ngClass]="{
-          'border-davivienda ring-2 ring-davivienda/20 bg-white shadow-sm': isOpen,
-          'border-slate-200': !isOpen
+          'opacity-50 cursor-not-allowed bg-slate-50/50': disabled,
+          'cursor-pointer': !disabled,
+          'px-2 py-1.5 border-0 bg-transparent': seamless,
+          'px-3.5 py-2.5 border rounded-2xl min-h-[58px] bg-white hover:bg-slate-50/80 shadow-xs': !seamless,
+          'border-davivienda ring-2 ring-davivienda/20': !seamless && isOpen,
+          'border-slate-300': !seamless && !isOpen
         }"
       >
         <div class="flex items-center gap-2.5 overflow-hidden">
           <!-- Calendario Icono con badge sutil Davivienda -->
           <div
-            class="w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0"
-            [ngClass]="value ? 'bg-red-50 text-davivienda' : 'bg-slate-200/60 text-slate-500'"
+            *ngIf="showIcon"
+            class="w-8 h-8 rounded-xl flex items-center justify-center transition-colors shrink-0"
+            [ngClass]="value ? 'bg-red-50 text-davivienda' : 'bg-slate-100 text-slate-500'"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -56,7 +61,10 @@ export interface CalendarDay {
           </div>
 
           <!-- Texto de Selección o Placeholder -->
-          <div class="truncate">
+          <div class="truncate text-left">
+            <span *ngIf="compactLabel" class="block text-[11px] font-medium text-slate-500 leading-tight">
+              {{ compactLabel }}
+            </span>
             <span *ngIf="!value" class="text-slate-400 font-medium text-sm">
               {{ placeholder }}
             </span>
@@ -69,7 +77,7 @@ export interface CalendarDay {
         <!-- Acciones a la derecha: Limpiar rápido o Chevron -->
         <div class="flex items-center gap-1 ml-2 shrink-0">
           <button
-            *ngIf="value"
+            *ngIf="value && !disabled"
             type="button"
             (click)="clearSelection($event)"
             title="Limpiar fecha"
@@ -81,6 +89,7 @@ export interface CalendarDay {
           </button>
 
           <svg
+            *ngIf="!disabled"
             class="w-4 h-4 text-slate-400 transition-transform duration-200"
             [ngClass]="{ 'rotate-180 text-davivienda': isOpen }"
             fill="none"
@@ -212,7 +221,12 @@ export interface CalendarDay {
 })
 export class DatePickerComponent implements ControlValueAccessor {
   @Input() label = '';
+  @Input() compactLabel = '';
   @Input() placeholder = 'Seleccionar fecha de salida';
+  @Input() minDate?: string;
+  @Input() disabled = false;
+  @Input() seamless = false;
+  @Input() showIcon = true;
 
   public isOpen = false;
   public value = ''; // YYYY-MM-DD
@@ -333,6 +347,7 @@ export class DatePickerComponent implements ControlValueAccessor {
   get calendarDays(): CalendarDay[] {
     const daysInMonth = new Date(this.viewYear, this.viewMonth + 1, 0).getDate();
     const todayStr = this.todayIso;
+    const effectiveMinStr = this.minDate && this.minDate > todayStr ? this.minDate : todayStr;
     const days: CalendarDay[] = [];
 
     for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
@@ -345,7 +360,7 @@ export class DatePickerComponent implements ControlValueAccessor {
         isCurrentMonth: true,
         isToday: dateString === todayStr,
         isSelected: dateString === this.value,
-        isPast: dateString < todayStr,
+        isPast: dateString < effectiveMinStr,
       });
     }
 
@@ -354,6 +369,7 @@ export class DatePickerComponent implements ControlValueAccessor {
 
   // User interactions
   toggleOpen(event: MouseEvent): void {
+    if (this.disabled) return;
     event.stopPropagation();
     this.isOpen = !this.isOpen;
     if (this.isOpen && this.value) {

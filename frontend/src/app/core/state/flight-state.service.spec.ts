@@ -78,4 +78,39 @@ describe('FlightStateService (Reactive Signals Store)', () => {
     // 1 de 4 ocupado = 25%
     expect(service.occupancyPercentage()).toBe(25);
   });
+
+  it('debe gestionar múltiples pasajeros y asientos bloqueados', () => {
+    service.passengers.set(3);
+    expect(service.passengers()).toBe(3);
+    expect(service.myLockedSeats()).toEqual([]);
+
+    const seat1 = {
+      id: '01A',
+      flightId: 'DV-204',
+      row: 1,
+      column: 'A',
+      seatNumber: '01A',
+      seatClass: SeatClass.BUSINESS,
+      price: 450000,
+      isExitRow: false,
+      status: SeatStatus.LOCKED,
+      lockedByUserId: 'user_1',
+    };
+    const seat2 = {
+      id: '01B',
+      flightId: 'DV-204',
+      row: 1,
+      column: 'B',
+      seatNumber: '01B',
+      seatClass: SeatClass.BUSINESS,
+      price: 450000,
+      isExitRow: false,
+      status: SeatStatus.LOCKED,
+      lockedByUserId: 'user_1',
+    };
+
+    service.myLockedSeats.set([seat1, seat2]);
+    expect(service.myLockedSeats().length).toBe(2);
+    expect(service.myLockedSeat()).toEqual(seat1);
+  });
 });
